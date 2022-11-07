@@ -1,0 +1,13 @@
+name = "Ducc0"
+uuid = "47ec601d-2729-4ac9-bed9-2b3ab5fca9ff"
+authors = ["Martin Reinecke <martin@MPA-Garching.MPG.DE>", "Maurizio Tomasi <ziotom78@gmail.com>"]
+version = "0.1.0"
+
+[compat]
+julia = "1.3"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
