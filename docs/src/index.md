@@ -8,7 +8,3 @@ Documentation for [Ducc0](https://github.com/ziotom78/Ducc0.jl).
 
 ```@index
 ```
-
-```@autodocs
-Modules = [Ducc0]
-```

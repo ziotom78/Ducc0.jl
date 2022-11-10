@@ -120,6 +120,12 @@ function nufft_nu2u!(
 end
 
 
+@doc raw"""
+    struct NufftPlan
+
+A plan for Nufft. Create one using [`make_nufft_plan`](@ref) and destroy
+it using [`delete_nufft_plan`](@ref).
+"""
 struct NufftPlan
     ptr::Ptr{Cvoid}
 end
@@ -232,14 +238,12 @@ nufft_u2nu!
 @doc raw"""
     nufft_nu2u!(ndim, npoints, shape, points, coord, out, sigma_min, sigma_max, fft_order; forward=true, verbosity=false, epsilon=1e-7, nthreads=1, periodicity=2π)
 """
-nufft_u2nu!
+nufft_nu2u!
 
 @doc raw"""
-    make_nufft_plan(nu2u, ndim, npoints, shape, coord::Array{Float64}, sigma_min, sigma_max, fft_order; epsilon=1e-7, nthreads=1, periodicity=2π)
+    make_nufft_plan(nu2u, ndim, npoints, shape, coord, sigma_min, sigma_max, fft_order; epsilon=1e-7, nthreads=1, periodicity=2π)
 """
 make_nufft_plan
-
-end
 
 @doc raw"""
     delete_nufft_plan(plan)
@@ -247,11 +251,13 @@ end
 delete_nufft_plan
 
 @doc raw"""
-    planned_nu2u(plan::NufftPlan, points::Array{Float64}, uniform::Array{Float64}; forward=true, verbosity=false)
+    planned_nu2u(plan, points, uniform; forward=true, verbosity=false)
 """
 planned_nu2u
 
 @doc raw"""
-planned_u2nu(plan::NufftPlan, points::Array{Float64}, uniform::Array{Float64}; forward=true, verbosity=false)
+    planned_u2nu(plan, points, uniform; forward=true, verbosity=false)
 """
 planned_u2nu
+
+end
