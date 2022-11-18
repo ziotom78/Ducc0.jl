@@ -38,7 +38,7 @@ function ArrayDescriptor(arr::StridedArray{T, N}) where {T,N}
 end
 
 # This is the function that should be called by the end user
-function ducc_u2nu(coord::StridedArray{Float64,2}, grid::StridedArray{T,N};
+function ducc_u2nu(coord::StridedArray{T,2}, grid::StridedArray{T2,N};
     forward::Bool = true,
     verbose::Bool = false,
     epsilon::AbstractFloat = 1e-5,
@@ -46,11 +46,32 @@ function ducc_u2nu(coord::StridedArray{Float64,2}, grid::StridedArray{T,N};
     sigma_min::AbstractFloat = 1.1,
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
-    fft_order::Bool = true) where {T,N}
+    fft_order::Bool = true) where {T,T2,N}
 
-    res = Vector{T}(undef,size(coord)[2])
+    res = Vector{T2}(undef,size(coord)[2])
 # MR which variables do I need to preserve?
-    GC.@preserve coord grid res ccall((:nufft_u2nu_julia_double_new, "./ducc_julia.so"), Cvoid, (ArrayDescriptor,ArrayDescriptor, Cint, Cdouble, Csize_t, ArrayDescriptor,Csize_t, Cdouble, Cdouble, Cdouble, Cint), ArrayDescriptor(grid), ArrayDescriptor(coord), 0, epsilon, nthreads, ArrayDescriptor(res), verbose, sigma_min, sigma_max, periodicity, fft_order)
+    GC.@preserve coord grid res ret=ccall((:nufft_u2nu_julia, "./ducc_julia.so"), Cint, (ArrayDescriptor,ArrayDescriptor, Cint, Cdouble, Csize_t, ArrayDescriptor,Csize_t, Cdouble, Cdouble, Cdouble, Cint), ArrayDescriptor(grid), ArrayDescriptor(coord), 0, epsilon, nthreads, ArrayDescriptor(res), verbose, sigma_min, sigma_max, periodicity, fft_order)
+    if (ret!=0)
+      throw(error())
+    end
+    return res
+end
+function ducc_nu2u(coord::StridedArray{T,2}, points::StridedArray{T2,1}, N::NTuple{D,Int};
+    forward::Bool = true,
+    verbose::Bool = false,
+    epsilon::AbstractFloat = 1e-5,
+    nthreads::Unsigned = UInt32(1),
+    sigma_min::AbstractFloat = 1.1,
+    sigma_max::AbstractFloat = 2.6,
+    periodicity::AbstractFloat = 2π,
+    fft_order::Bool = true) where {T,T2,D}
+
+    res = Array{T2}(undef,N)
+# MR which variables do I need to preserve?
+    GC.@preserve coord points res ret=ccall((:nufft_nu2u_julia, "./ducc_julia.so"), Cint, (ArrayDescriptor,ArrayDescriptor, Cint, Cdouble, Csize_t, ArrayDescriptor,Csize_t, Cdouble, Cdouble, Cdouble, Cint), ArrayDescriptor(points), ArrayDescriptor(coord), 0, epsilon, nthreads, ArrayDescriptor(res), verbose, sigma_min, sigma_max, periodicity, fft_order)
+    if (ret!=0)
+      throw(error())
+    end
     return res
 end
 
@@ -75,8 +96,10 @@ function NufftPlan(coords::Matrix{T}, N::NTuple{D,Int}; nu2u::Bool=false,
                 (Cint, ArrayDescriptor, ArrayDescriptor, Cdouble, Csize_t, Cdouble, Cdouble, Cdouble, Cint), 
                 nu2u, ArrayDescriptor(N2), ArrayDescriptor(coords), epsilon, nthreads, sigma_min, sigma_max, periodicity, fft_order)
 
+  if (ptr==Ptr{Cvoid}(0))
+    throw(error())
+  end
   p = NufftPlan(N2, size(coords)[2], ptr)
-
   finalizer(p -> begin
     println("finalize!")
     ccall((:delete_nufft_plan_julia, "./ducc_julia.so" ), Cvoid, (Ptr{Cvoid},), p.cplan)
@@ -86,12 +109,18 @@ function NufftPlan(coords::Matrix{T}, N::NTuple{D,Int}; nu2u::Bool=false,
 end
 function planned_nu2u(plan::NufftPlan, points::StridedArray{T,1}; forward::Bool=true, verbose::Bool=false,) where {T}
   res = Array{T}(undef, Tuple(i for i in plan.N))
-  ccall((:planned_nu2u_julia, "./ducc_julia.so" ), Cvoid, (Ptr{Cvoid}, Cint, Csize_t, ArrayDescriptor, ArrayDescriptor), plan.cplan, forward, verbose, ArrayDescriptor(points), ArrayDescriptor(res))
+  ret = ccall((:planned_nu2u_julia, "./ducc_julia.so" ), Cint, (Ptr{Cvoid}, Cint, Csize_t, ArrayDescriptor, ArrayDescriptor), plan.cplan, forward, verbose, ArrayDescriptor(points), ArrayDescriptor(res))
+  if (ret!=0)
+    throw(error())
+  end
   return res
 end
 function planned_u2nu(plan::NufftPlan, uniform::StridedArray{T}; forward::Bool=true, verbose::Bool=false,) where {T}
   res = Array{T}(undef, plan.npoints)
-  ccall((:planned_u2nu_julia, "./ducc_julia.so" ), Cvoid, (Ptr{Cvoid}, Cint, Csize_t, ArrayDescriptor, ArrayDescriptor), plan.cplan, forward, verbose, ArrayDescriptor(uniform), ArrayDescriptor(res))
+  ret = ccall((:planned_u2nu_julia, "./ducc_julia.so" ), Cint, (Ptr{Cvoid}, Cint, Csize_t, ArrayDescriptor, ArrayDescriptor), plan.cplan, forward, verbose, ArrayDescriptor(uniform), ArrayDescriptor(res))
+  if (ret!=0)
+    throw(error())
+  end
   return res
 end
 
@@ -105,7 +134,11 @@ points = rand(Complex{Float64},(npoints,))
 planned_nu2u(plan, points)
 grid = ones(Complex{Float64},shp)
 planned_u2nu(plan, grid)
+coord = rand(Float32, length(shp),npoints) .- Float32(0.5)
+plan = NufftPlan(coord, shp)
 points = rand(Complex{Float32},(npoints,))
 planned_nu2u(plan, points)
 grid = ones(Complex{Float32},shp)
 planned_u2nu(plan, grid)
+ducc_nu2u(coord, points, shp)
+ducc_u2nu(coord, grid)
