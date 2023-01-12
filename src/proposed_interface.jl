@@ -77,9 +77,10 @@ function best_epsilon(
     return res
 end
 
-function u2nu(
+function u2nu!(
     coord::StridedArray{T,2},
-    grid::StridedArray{T2,N};
+    grid::StridedArray{T2,D},
+    points::StridedArray{T2,1};
     forward::Bool = true,
     verbose::Bool = false,
     epsilon::AbstractFloat = 1e-5,
@@ -88,7 +89,7 @@ function u2nu(
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
-) where {T,T2,N}
+) where {T,T2,D}
     res = Vector{T2}(undef, size(coord)[2])
     GC.@preserve coord grid res
     ret = ccall(
@@ -123,10 +124,9 @@ function u2nu(
     return res
 end
 
-function nu2u(
+function u2nu(
     coord::StridedArray{T,2},
-    points::StridedArray{T2,1},
-    N::NTuple{D,Int};
+    grid::StridedArray{T2,D};
     forward::Bool = true,
     verbose::Bool = false,
     epsilon::AbstractFloat = 1e-5,
@@ -136,8 +136,24 @@ function nu2u(
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
 ) where {T,T2,D}
-    res = Array{T2}(undef, N)
-    GC.@preserve coord points res
+    res = Vector{T2}(undef, size(coord)[2])
+    return u2nu!(coord, grid, res, forward=forward, verbose=verbose, epsilon=epsilon, nthreads=nthreads, sigma_min=sigma_min, sigma_max=sigma_max, periodicity=periodicity, fft_order=fft_order)
+end
+
+function nu2u!(
+    coord::StridedArray{T,2},
+    points::StridedArray{T2,1},
+    uniform::StridedArray{T2,D};
+    forward::Bool = true,
+    verbose::Bool = false,
+    epsilon::AbstractFloat = 1e-5,
+    nthreads::Unsigned = UInt32(1),
+    sigma_min::AbstractFloat = 1.1,
+    sigma_max::AbstractFloat = 2.6,
+    periodicity::AbstractFloat = 2π,
+    fft_order::Bool = true,
+) where {T,T2,D}
+    GC.@preserve coord points uniform
     ret = ccall(
         (:nufft_nu2u, libducc),
         Cint,
@@ -159,7 +175,7 @@ function nu2u(
         0,
         epsilon,
         nthreads,
-        desc(res),
+        desc(uniform),
         verbose,
         sigma_min,
         sigma_max,
@@ -167,7 +183,24 @@ function nu2u(
         fft_order,
     )
     ret != 0 && throw(error())
-    return res
+    return uniform
+end
+
+function nu2u(
+    coord::StridedArray{T,2},
+    points::StridedArray{T2,1},
+    N::NTuple{D,Int};
+    forward::Bool = true,
+    verbose::Bool = false,
+    epsilon::AbstractFloat = 1e-5,
+    nthreads::Unsigned = UInt32(1),
+    sigma_min::AbstractFloat = 1.1,
+    sigma_max::AbstractFloat = 2.6,
+    periodicity::AbstractFloat = 2π,
+    fft_order::Bool = true,
+) where {T,T2,D}
+    res = Array{T2}(undef, N)
+    return nu2u!(coord, points, res, forward=forward, verbose=verbose, epsilon=epsilon, nthreads=nthreads, sigma_min=sigma_min, sigma_max=sigma_max, periodicity=periodicity, fft_order=fft_order) 
 end
 
 mutable struct NufftPlan
