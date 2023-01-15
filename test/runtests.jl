@@ -28,3 +28,22 @@ end
         delete_plan!(plan)
     end
 end
+
+@testset "Sht" begin
+    lmax = 100
+    theta = Vector{Float64}(undef, 2*lmax+2)
+    for i=1:2*lmax+2
+        theta[i] = (i-1)*π/(2*lmax+1)
+    end
+    mval = Vector{Csize_t}(undef, lmax+1)
+    mstart = Vector{Cptrdiff_t}(undef, lmax+1)
+    ofs=0
+    for i=1:lmax+1
+        mval[i] = i-1
+        mstart[i] = ofs
+        ofs += lmax+1-i-1
+    end
+    println(mstart[lmax+1])
+    alm=zeros(Complex{Float64}, mstart[lmax+1]+10,1)
+    Ducc0.Sht.alm2leg(alm, UInt64(0), UInt64(lmax), mval, mstart, 1, theta, UInt64(0))
+end
