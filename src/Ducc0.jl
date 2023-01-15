@@ -333,7 +333,7 @@ function alm2leg!(
     spin::Unsigned,
     lmax::Unsigned,
     mval::StridedArray{Csize_t,1},
-    mstart::StridedArray{Csize_t,1}, # FIXME: this is still 0-based at the moment
+    mstart::StridedArray{Cptrdiff_t,1}, # FIXME: this is still 0-based at the moment
     lstride::Int,
     theta::StridedArray{Cdouble,1},
     nthreads::Unsigned,
@@ -363,7 +363,7 @@ function alm2leg(
     spin::Unsigned,
     lmax::Unsigned,
     mval::StridedArray{Csize_t,1},
-    mstart::StridedArray{Csize_t,1}, # FIXME: this is still 0-based at the moment
+    mstart::StridedArray{Cptrdiff_t,1}, # FIXME: this is still 0-based at the moment
     lstride::Int,
     theta::StridedArray{Cdouble,1},
     nthreads::Unsigned,
@@ -382,7 +382,7 @@ function leg2alm!(
     spin::Unsigned,
     lmax::Unsigned,
     mval::StridedArray{Csize_t,1},
-    mstart::StridedArray{Csize_t,1}, # FIXME: this is still 0-based at the moment
+    mstart::StridedArray{Cptrdiff_t,1}, # FIXME: this is still 0-based at the moment
     lstride::Int,
     theta::StridedArray{Cdouble,1},
     nthreads::Unsigned,
@@ -412,7 +412,7 @@ function leg2alm(
     spin::Unsigned,
     lmax::Unsigned,
     mval::StridedArray{Csize_t,1},
-    mstart::StridedArray{Csize_t,1}, # FIXME: this is still 0-based at the moment
+    mstart::StridedArray{Cptrdiff_t,1}, # FIXME: this is still 0-based at the moment
     lstride::Int,
     theta::StridedArray{Cdouble,1},
     nthreads::Unsigned,
