@@ -9,10 +9,8 @@ module Ducc0
 
 module Support
 
-#import ducc0_jll
-#const libducc = ducc0_jll.libducc_julia
-const libducc = "/home/martin/codes/ducc/julia/ducc_julia.so" # FIXME
-#"/home/martin/codes/ducc/julia/ducc_julia.so"
+import ducc0_jll
+const libducc = ducc0_jll.libducc_julia
 
 struct ArrayDescriptor
     shape::NTuple{10,UInt64}  # length of every axis
