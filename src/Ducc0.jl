@@ -1,8 +1,3 @@
-# proposed interface to pass array and type information from Julia to C++
-
-# This code does not work out of the box since I have not updated ducc0_jll yet.
-# It should mainly serve as a base for discussion.
-
 # Formatting: using JuliaFormatter; format_file("proposed_interface.jl",remove_extra_newlines=true)
 
 module Ducc0
