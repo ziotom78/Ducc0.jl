@@ -5,7 +5,7 @@ version = "0.1.0"
 
 [deps]
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
-ducc0_jll = "0.27.9"
+ducc0_jll = "0.27.10"
 
 [compat]
 julia = "1.6"
