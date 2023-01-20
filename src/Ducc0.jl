@@ -1,3 +1,6 @@
+# Copyright (C) 2022-2023 Max-Planck-Society, Leo A. Bianchi
+# Authors: Martin Reinecke, Leo A. Bianchi
+
 # Formatting: using JuliaFormatter; format_file("proposed_interface.jl",remove_extra_newlines=true)
 
 module Ducc0
@@ -6,6 +9,7 @@ module Support
 
 import ducc0_jll
 const libducc = ducc0_jll.libducc_julia
+#const libducc = "/home/martin/codes/ducc/julia/ducc_julia.so"
 
 struct ArrayDescriptor
     shape::NTuple{10,UInt64}  # length of every axis
@@ -326,7 +330,7 @@ function alm2leg!(
     spin::Unsigned,
     lmax::Unsigned,
     mval::StridedArray{Csize_t,1},
-    mstart::StridedArray{Cptrdiff_t,1}, # FIXME: this is still 0-based at the moment
+    mstart::StridedArray{Cptrdiff_t,1}, # 1-based
     lstride::Int,
     theta::StridedArray{Cdouble,1},
     nthreads::Unsigned,
@@ -356,7 +360,7 @@ function alm2leg(
     spin::Unsigned,
     lmax::Unsigned,
     mval::StridedArray{Csize_t,1},
-    mstart::StridedArray{Cptrdiff_t,1}, # FIXME: this is still 0-based at the moment
+    mstart::StridedArray{Cptrdiff_t,1}, # 1-based
     lstride::Int,
     theta::StridedArray{Cdouble,1},
     nthreads::Unsigned,
@@ -375,7 +379,7 @@ function leg2alm!(
     spin::Unsigned,
     lmax::Unsigned,
     mval::StridedArray{Csize_t,1},
-    mstart::StridedArray{Cptrdiff_t,1}, # FIXME: this is still 0-based at the moment
+    mstart::StridedArray{Cptrdiff_t,1}, # 1-based
     lstride::Int,
     theta::StridedArray{Cdouble,1},
     nthreads::Unsigned,
@@ -405,13 +409,13 @@ function leg2alm(
     spin::Unsigned,
     lmax::Unsigned,
     mval::StridedArray{Csize_t,1},
-    mstart::StridedArray{Cptrdiff_t,1}, # FIXME: this is still 0-based at the moment
+    mstart::StridedArray{Cptrdiff_t,1}, # 1-based
     lstride::Int,
     theta::StridedArray{Cdouble,1},
     nthreads::Unsigned,
 ) where {T}
     ncomp = size(leg, 3)
-    alm = Array{Complex{T}}(undef, (maximum(mstart) + lmax + 1, ncomp)) # FIXME: still 0-based as well!!
+    alm = Array{Complex{T}}(undef, (maximum(mstart) + lmax, ncomp))
     leg2alm!(leg, alm, spin, lmax, mval, mstart, lstride, theta, nthreads)
 end
 
@@ -420,7 +424,7 @@ function leg2map!(
     map::StridedArray{T,2},
     nphi::StridedArray{Csize_t,1},
     phi0::StridedArray{Cdouble,1},
-    ringstart::StridedArray{Csize_t,1}, # FIXME: this is still 0-based at the moment
+    ringstart::StridedArray{Csize_t,1}, # 1-based
     pixstride::Int,
     nthreads::Unsigned,
 ) where {T}
@@ -446,7 +450,7 @@ function leg2map(
     leg::StridedArray{Complex{T},3},
     nphi::StridedArray{Csize_t,1},
     phi0::StridedArray{Cdouble,1},
-    ringstart::StridedArray{Csize_t,1}, # FIXME: this is still 0-based at the moment
+    ringstart::StridedArray{Csize_t,1}, # 1-based
     pixstride::Int,
     nthreads::Unsigned,
 ) where {T}
@@ -461,7 +465,7 @@ function map2leg!(
     leg::StridedArray{Complex{T},3},
     nphi::StridedArray{Csize_t,1},
     phi0::StridedArray{Cdouble,1},
-    ringstart::StridedArray{Csize_t,1}, # FIXME: this is still 0-based at the moment
+    ringstart::StridedArray{Csize_t,1}, # 1-based
     pixstride::Int,
     nthreads::Unsigned,
 ) where {T}
@@ -487,7 +491,7 @@ function map2leg(
     map::StridedArray{T,2},
     nphi::StridedArray{Csize_t,1},
     phi0::StridedArray{Cdouble,1},
-    ringstart::StridedArray{Csize_t,1}, # FIXME: this is still 0-based at the moment
+    ringstart::StridedArray{Csize_t,1}, # 1-based
     nm::Int,
     pixstride::Int,
     nthreads::Unsigned,
