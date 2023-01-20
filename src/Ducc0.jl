@@ -7,9 +7,9 @@ module Ducc0
 
 module Support
 
-import ducc0_jll
-const libducc = ducc0_jll.libducc_julia
-#const libducc = "/home/martin/codes/ducc/julia/ducc_julia.so"
+#import ducc0_jll
+#const libducc = ducc0_jll.libducc_julia
+const libducc = "/home/martin/codes/ducc/julia/ducc_julia.so"
 
 struct ArrayDescriptor
     shape::NTuple{10,UInt64}  # length of every axis
@@ -50,6 +50,95 @@ Dref = Ref{ArrayDescriptor}
 export libducc, desc, Dref
 
 end  # module Support
+
+module Fft
+
+#import AbstractFFTs
+#import LinearAlgebra
+
+using ..Support
+
+function make_axes(axes, ndim)
+    ax = Csize_t[axes...]::Vector{Csize_t}
+    if length(unique(ax)) < length(ax)
+        throw(ArgumentError("each dimension can be transformed at most once"))
+    end
+    if length(ax) == 0
+        ax = Csize_t[(1:ndim)...]::Vector{Csize_t}  # FIXME: can this be done in an easier fashion?
+    end
+    return ax
+end
+
+function c2c(x::StridedArray{T}, axes; forward::Bool=true, fct::Float64=1.0, nthreads::Unsigned = Csize_t(1)) where {T<:Union{Complex{Float32},Complex{Float64}}}
+    ax2 = make_axes(axes, ndims(x))
+    res = Array{T}(undef, size(x))
+    ret = ccall(
+        (:fft_c2c, libducc),
+        Cint,
+        (Dref, Dref, Dref, Cint, Cdouble, Csize_t),
+        desc(x),
+        desc(res),
+        desc(ax2),
+        forward,
+        fct,
+        nthreads,
+    )
+    ret != 0 && throw(error())
+    return res
+end
+
+#mutable struct Plan{T} <: AbstractFFTs.Plan{T}
+#    region::Vector{Int}
+#    axes::Vector{Csize_t}
+#    fwd::Bool
+#    nthreads::UInt
+##    pinv::AbstractFFTs.Plan{T}
+#end
+
+#function make_plan(x::StridedArray{T}, region; nthreads::Unsigned = Csize_t(1)) where {T<:Union{Complex{Float32},Complex{Float64}}}
+#    reg = Int[region...]::Vector{Int}
+#    if length(unique(reg)) < length(reg)
+#        throw(ArgumentError("each dimension can be transformed at most once"))
+#    end
+#    if length(reg) == 0
+#        reg = Int[(1:ndims(x))...]::Vector{Int}  # FIXME: can this be done in an easier fashion?
+#    end
+#    axes = Csize_t[reg...]::Vector{Csize_t}
+#    return Plan{T}(reg, axes, true, nthreads)
+#end
+
+#function AbstractFFTs.plan_fft(x::StridedArray{T}, region; nthreads::Unsigned = Csize_t(1)) where {T<:Union{Complex{Float32},Complex{Float64}}}
+#    reg = Int[region...]::Vector{Int}
+#    if length(unique(reg)) < length(reg)
+#        throw(ArgumentError("each dimension can be transformed at most once"))
+#    end
+#    if length(reg) == 0
+#        reg = Int[(1:ndims(x))...]::Vector{Int}  # FIXME: can this be done in an easier fashion?
+#    end
+#    axes = Csize_t[reg...]::Vector{Csize_t}
+#    return Plan{T}(reg, axes, true, nthreads)
+#end
+
+#function AbstractFFTs.plan_inv(p::Plan{T}) where {T}
+#    return Plan{T}(reverse(p.reg), reverse(p.axes), !p.fwd, p.nthreads)
+#end
+
+#function LinearAlgebra.mul!(y::StridedArray{T}, p::Plan{T}, x::StridedArray{T}) where{T}
+#    res = ccall(
+#        (:fft_c2c, libducc),
+#        Cint,
+#        (Dref, Dref, Dref, Cint, Cdouble, Csize_t),
+#        desc(x),
+#        desc(y),
+#        desc(p.region),
+#        p.fwd,
+#        1.0,
+#        p.nthreads,
+#    )
+#    res <= 0 && throw(error())
+#end
+
+end  # module Fft
 
 module Nufft
 
