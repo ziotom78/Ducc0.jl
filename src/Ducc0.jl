@@ -53,8 +53,8 @@ end  # module Support
 
 module Fft
 
-#import AbstractFFTs
-#import LinearAlgebra
+import AbstractFFTs
+import LinearAlgebra
 
 using ..Support
 
@@ -69,74 +69,89 @@ function make_axes(axes, ndim)
     return ax
 end
 
-function c2c(x::StridedArray{T}, axes; forward::Bool=true, fct::Float64=1.0, nthreads::Unsigned = Csize_t(1)) where {T<:Union{Complex{Float32},Complex{Float64}}}
+function c2c!(x::StridedArray{T}, y::StridedArray{T}, axes; forward::Bool=true, fct::Float64=1.0, nthreads::Unsigned = Csize_t(1)) where {T<:Union{Complex{Float32},Complex{Float64}}}
     ax2 = make_axes(axes, ndims(x))
-    res = Array{T}(undef, size(x))
+    size(x) == size(y) || throw(error());
     ret = ccall(
         (:fft_c2c, libducc),
         Cint,
         (Dref, Dref, Dref, Cint, Cdouble, Csize_t),
         desc(x),
-        desc(res),
+        desc(y),
         desc(ax2),
         forward,
         fct,
         nthreads,
     )
     ret != 0 && throw(error())
-    return res
+    return y
+end
+function c2c(x::StridedArray{T}, axes; forward::Bool=true, fct::Float64=1.0, nthreads::Unsigned = Csize_t(1)) where {T<:Union{Complex{Float32},Complex{Float64}}}
+    return c2c!(x, Array{T}(undef, size(x)), axes, forward, fct, nthreads)
 end
 
-#mutable struct Plan{T} <: AbstractFFTs.Plan{T}
-#    region::Vector{Int}
-#    axes::Vector{Csize_t}
-#    fwd::Bool
-#    nthreads::UInt
-##    pinv::AbstractFFTs.Plan{T}
-#end
+mutable struct TestPlan{T,N} <: AbstractFFTs.Plan{T}
+    region
+    sz::NTuple{N,Int}
+    nthreads::Csize_t
+    pinv::AbstractFFTs.Plan{T}
+    function TestPlan{T}(region, sz::NTuple{N,Int}, nthreads::Csize_t=Csize_t(1)) where {T,N}
+        return new{T,N}(region, sz, nthreads)
+    end
+end
 
-#function make_plan(x::StridedArray{T}, region; nthreads::Unsigned = Csize_t(1)) where {T<:Union{Complex{Float32},Complex{Float64}}}
-#    reg = Int[region...]::Vector{Int}
-#    if length(unique(reg)) < length(reg)
-#        throw(ArgumentError("each dimension can be transformed at most once"))
-#    end
-#    if length(reg) == 0
-#        reg = Int[(1:ndims(x))...]::Vector{Int}  # FIXME: can this be done in an easier fashion?
-#    end
-#    axes = Csize_t[reg...]::Vector{Csize_t}
-#    return Plan{T}(reg, axes, true, nthreads)
-#end
+mutable struct InverseTestPlan{T,N} <: AbstractFFTs.Plan{T}
+    region
+    sz::NTuple{N,Int}
+    nthreads::Csize_t
+    pinv::AbstractFFTs.Plan{T}
+    function InverseTestPlan{T}(region, sz::NTuple{N,Int}, nthreads::Csize_t=Csize_t(1)) where {T,N}
+        return new{T,N}(region, sz, nthreads)
+    end
+end
 
-#function AbstractFFTs.plan_fft(x::StridedArray{T}, region; nthreads::Unsigned = Csize_t(1)) where {T<:Union{Complex{Float32},Complex{Float64}}}
-#    reg = Int[region...]::Vector{Int}
-#    if length(unique(reg)) < length(reg)
-#        throw(ArgumentError("each dimension can be transformed at most once"))
-#    end
-#    if length(reg) == 0
-#        reg = Int[(1:ndims(x))...]::Vector{Int}  # FIXME: can this be done in an easier fashion?
-#    end
-#    axes = Csize_t[reg...]::Vector{Csize_t}
-#    return Plan{T}(reg, axes, true, nthreads)
-#end
+Base.size(p::TestPlan) = p.sz
+Base.ndims(::TestPlan{T,N}) where {T,N} = N
+Base.size(p::InverseTestPlan) = p.sz
+Base.ndims(::InverseTestPlan{T,N}) where {T,N} = N
 
-#function AbstractFFTs.plan_inv(p::Plan{T}) where {T}
-#    return Plan{T}(reverse(p.reg), reverse(p.axes), !p.fwd, p.nthreads)
-#end
+function AbstractFFTs.plan_fft(x::AbstractArray{T}, region; kwargs...) where {T}
+    return TestPlan{T}(region, size(x))
+end
+function AbstractFFTs.plan_bfft(x::AbstractArray{T}, region; kwargs...) where {T}
+    return InverseTestPlan{T}(region, size(x))
+end
 
-#function LinearAlgebra.mul!(y::StridedArray{T}, p::Plan{T}, x::StridedArray{T}) where{T}
-#    res = ccall(
-#        (:fft_c2c, libducc),
-#        Cint,
-#        (Dref, Dref, Dref, Cint, Cdouble, Csize_t),
-#        desc(x),
-#        desc(y),
-#        desc(p.region),
-#        p.fwd,
-#        1.0,
-#        p.nthreads,
-#    )
-#    res <= 0 && throw(error())
-#end
+function AbstractFFTs.plan_inv(p::TestPlan{T}) where {T}
+    unscaled_pinv = InverseTestPlan{T}(p.region, p.sz)
+    N = AbstractFFTs.normalization(T, p.sz, p.region)
+    unscaled_pinv.pinv = AbstractFFTs.ScaledPlan(p, N)
+    pinv = AbstractFFTs.ScaledPlan(unscaled_pinv, N)
+    return pinv
+end
+function AbstractFFTs.plan_inv(pinv::InverseTestPlan{T}) where {T}
+    unscaled_p = TestPlan{T}(pinv.region, pinv.sz)
+    N = AbstractFFTs.normalization(T, pinv.sz, pinv.region)
+    unscaled_p.pinv = AbstractFFTs.ScaledPlan(pinv, N)
+    p = AbstractFFTs.ScaledPlan(unscaled_p, N)
+    return p
+end
+
+function mul!(
+    y::AbstractArray{<:Complex,N}, p::TestPlan, x::AbstractArray{<:Union{Complex,Real},N}
+) where {N}
+    size(y) == size(p) == size(x) || throw(DimensionMismatch())
+    c2c!(x, y, p.region, forward=true, fct=1., nthreads=p.nthreads)
+end
+function mul!(
+    y::AbstractArray{<:Complex,N}, p::InverseTestPlan, x::AbstractArray{<:Union{Complex,Real},N}
+) where {N}
+    size(y) == size(p) == size(x) || throw(DimensionMismatch())
+    c2c!(x, y, p.region, forward=false, fct=1., nthreads=p.nthreads)
+end
+
+Base.:*(p::TestPlan, x::AbstractArray) = mul!(similar(x, complex(float(eltype(x)))), p, x)
+Base.:*(p::InverseTestPlan, x::AbstractArray) = mul!(similar(x, complex(float(eltype(x)))), p, x)
 
 end  # module Fft
 
