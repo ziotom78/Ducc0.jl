@@ -1,7 +1,7 @@
 # Copyright (C) 2022-2023 Max-Planck-Society, Leo A. Bianchi
 # Authors: Martin Reinecke, Leo A. Bianchi
 
-# Formatting: using JuliaFormatter; format_file("proposed_interface.jl",remove_extra_newlines=true)
+# Formatting: using JuliaFormatter; format_file("Ducc0.jl",remove_extra_newlines=true)
 
 module Ducc0
 
@@ -53,9 +53,6 @@ end  # module Support
 
 module Fft
 
-import AbstractFFTs
-import LinearAlgebra
-
 using ..Support
 
 function make_axes(axes, ndim)
@@ -69,9 +66,16 @@ function make_axes(axes, ndim)
     return ax
 end
 
-function c2c!(x::StridedArray{T}, y::StridedArray{T}, axes; forward::Bool=true, fct::Float64=1.0, nthreads::Unsigned = Csize_t(1)) where {T<:Union{Complex{Float32},Complex{Float64}}}
+function c2c!(
+    x::StridedArray{Complex{T}},
+    y::StridedArray{Complex{T}},
+    axes;
+    forward::Bool = true,
+    fct::AbstractFloat = 1.0,
+    nthreads::Integer = 1,
+) where {T<:Union{Float32,Float64}}
     ax2 = make_axes(axes, ndims(x))
-    size(x) == size(y) || throw(error());
+    size(x) == size(y) || throw(error())
     ret = ccall(
         (:fft_c2c, libducc),
         Cint,
@@ -86,45 +90,61 @@ function c2c!(x::StridedArray{T}, y::StridedArray{T}, axes; forward::Bool=true, 
     ret != 0 && throw(error())
     return y
 end
-function c2c(x::StridedArray{T}, axes; forward::Bool=true, fct::Float64=1.0, nthreads::Unsigned = Csize_t(1)) where {T<:Union{Complex{Float32},Complex{Float64}}}
+function c2c(
+    x::StridedArray{Complex{T}},
+    axes;
+    forward::Bool = true,
+    fct::AbstractFloat = 1.0,
+    nthreads::Integer = 1,
+) where {T<:Union{Float32,Float64}}
     return c2c!(x, Array{T}(undef, size(x)), axes, forward, fct, nthreads)
 end
-
-mutable struct Ducc0FFTPlan{T,N} <: AbstractFFTs.Plan{T}
-    region
-    sz::NTuple{N,Int}
-    forward::Bool
-    normalize::Bool
-    nthreads::Csize_t
-    pinv::AbstractFFTs.Plan{T}
-    function Ducc0FFTPlan{T}(region, sz::NTuple{N,Int}, forward::Bool=true, normalize::Bool=false, nthreads::Csize_t=Csize_t(1)) where {T,N}
-        return new{T,N}(region, sz, forward, normalize, nthreads)
-    end
+function r2c!(
+    x::StridedArray{T},
+    y::StridedArray{Complex{T}},
+    axes;
+    forward::Bool = true,
+    fct::AbstractFloat = 1.0,
+    nthreads::Integer = 1,
+) where {T<:Union{Float32,Float64}}
+    ax2 = make_axes(axes, ndims(x))
+    ret = ccall(
+        (:fft_r2c, libducc),
+        Cint,
+        (Dref, Dref, Dref, Cint, Cdouble, Csize_t),
+        desc(x),
+        desc(y),
+        desc(ax2),
+        forward,
+        fct,
+        nthreads,
+    )
+    ret != 0 && throw(error())
+    return y
 end
-
-Base.size(p::Ducc0FFTPlan) = p.sz
-Base.ndims(::Ducc0FFTPlan{T,N}) where {T,N} = N
-
-function AbstractFFTs.plan_fft(x::AbstractArray{T}, region; kwargs...) where {T}
-    return Ducc0FFTPlan{T}(region, size(x), true, false)
+function c2r!(
+    x::StridedArray{Complex{T}},
+    y::StridedArray{T},
+    axes;
+    forward::Bool = true,
+    fct::AbstractFloat = 1.0,
+    nthreads::Integer = 1,
+) where {T<:Union{Float32,Float64}}
+    ax2 = make_axes(axes, ndims(x))
+    ret = ccall(
+        (:fft_c2r, libducc),
+        Cint,
+        (Dref, Dref, Dref, Cint, Cdouble, Csize_t),
+        desc(x),
+        desc(y),
+        desc(ax2),
+        forward,
+        fct,
+        nthreads,
+    )
+    ret != 0 && throw(error())
+    return y
 end
-function AbstractFFTs.plan_bfft(x::AbstractArray{T}, region; kwargs...) where {T}
-    return Ducc0FFTPlan{T}(region, size(x), false, false)
-end
-
-function AbstractFFTs.plan_inv(p::Ducc0FFTPlan{T}) where {T}
-    return Ducc0FFTPlan{T}(p.region, p.sz, !p.forward, !p.normalize)
-end
-
-function mul!(
-    y::AbstractArray{<:Complex,N}, p::Ducc0FFTPlan, x::AbstractArray{<:Union{Complex,Real},N}
-) where {N}
-    size(y) == size(p) == size(x) || throw(DimensionMismatch())
-    fct = p.normalize ? AbstractFFTs.normalization(Float64, p.sz, p.region) : 1.
-    c2c!(x, y, p.region, forward=p.forward, fct=fct, nthreads=p.nthreads)
-end
-
-Base.:*(p::Ducc0FFTPlan, x::AbstractArray) = mul!(similar(x, complex(float(eltype(x)))), p, x)
 
 end  # module Fft
 
@@ -133,7 +153,7 @@ module Nufft
 using ..Support
 
 function best_epsilon(
-    ndim::Unsigned,
+    ndim::Integer,
     singleprec::Bool;
     sigma_min::AbstractFloat = 1.1,
     sigma_max::AbstractFloat = 2.6,
@@ -158,7 +178,7 @@ function u2nu!(
     forward::Bool = true,
     verbose::Bool = false,
     epsilon::AbstractFloat = 1e-5,
-    nthreads::Unsigned = UInt32(1),
+    nthreads::Integer = 1,
     sigma_min::AbstractFloat = 1.1,
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
@@ -204,14 +224,26 @@ function u2nu(
     forward::Bool = true,
     verbose::Bool = false,
     epsilon::AbstractFloat = 1e-5,
-    nthreads::Unsigned = UInt32(1),
+    nthreads::Integer = 1,
     sigma_min::AbstractFloat = 1.1,
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
 ) where {T,T2,D}
     res = Vector{T2}(undef, size(coord)[2])
-    return u2nu!(coord, grid, res, forward=forward, verbose=verbose, epsilon=epsilon, nthreads=nthreads, sigma_min=sigma_min, sigma_max=sigma_max, periodicity=periodicity, fft_order=fft_order)
+    return u2nu!(
+        coord,
+        grid,
+        res,
+        forward = forward,
+        verbose = verbose,
+        epsilon = epsilon,
+        nthreads = nthreads,
+        sigma_min = sigma_min,
+        sigma_max = sigma_max,
+        periodicity = periodicity,
+        fft_order = fft_order,
+    )
 end
 
 function nu2u!(
@@ -221,7 +253,7 @@ function nu2u!(
     forward::Bool = true,
     verbose::Bool = false,
     epsilon::AbstractFloat = 1e-5,
-    nthreads::Unsigned = UInt32(1),
+    nthreads::Integer = 1,
     sigma_min::AbstractFloat = 1.1,
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
@@ -267,14 +299,26 @@ function nu2u(
     forward::Bool = true,
     verbose::Bool = false,
     epsilon::AbstractFloat = 1e-5,
-    nthreads::Unsigned = UInt32(1),
+    nthreads::Integer = 1,
     sigma_min::AbstractFloat = 1.1,
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
 ) where {T,T2,D}
     res = Array{T2}(undef, N)
-    return nu2u!(coord, points, res, forward=forward, verbose=verbose, epsilon=epsilon, nthreads=nthreads, sigma_min=sigma_min, sigma_max=sigma_max, periodicity=periodicity, fft_order=fft_order) 
+    return nu2u!(
+        coord,
+        points,
+        res,
+        forward = forward,
+        verbose = verbose,
+        epsilon = epsilon,
+        nthreads = nthreads,
+        sigma_min = sigma_min,
+        sigma_max = sigma_max,
+        periodicity = periodicity,
+        fft_order = fft_order,
+    )
 end
 
 mutable struct NufftPlan
@@ -296,7 +340,7 @@ function make_plan(
     N::NTuple{D,Int};
     nu2u::Bool = false,
     epsilon::AbstractFloat = 1e-5,
-    nthreads::Unsigned = UInt32(1),
+    nthreads::Integer = 1,
     sigma_min::AbstractFloat = 1.1,
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
@@ -395,75 +439,6 @@ function u2nu_planned(
     return res
 end
 
-using LinearAlgebra
-using AbstractNFFTs
-
-mutable struct Ducc0NufftPlan{T,D} <: AbstractNFFTPlan{T,D,1}
-  N::NTuple{D,Int64}
-  J::Int64
-  plan::NufftPlan
-end
-
-################
-# constructors
-################
-
-function Ducc0NufftPlan(k::Matrix{T}, N::NTuple{D,Int}, 
-              reltol::Float64) where {D,T<:Float64}
-
-  J = size(k,2)
-  sigma_min = 1.1
-  sigma_max = 2.6
-
-  reltol = max(reltol, 1.1*best_epsilon(UInt64(D), false, sigma_min=sigma_min, sigma_max=sigma_max))
-
-  plan = make_plan(
-    k,
-    N,
-    epsilon=reltol,
-    nthreads=UInt64(Threads.nthreads()),
-    sigma_min=sigma_min,
-    sigma_max=sigma_max,
-    periodicity=1.0,
-    fft_order=false,
-  )
-  return Ducc0NufftPlan{T,D}(N, J, plan)
-end
-
-
-function Base.show(io::IO, p::Ducc0NufftPlan)
-  print(io, "Ducc0NufftPlan")
-end
-
-AbstractNFFTs.size_in(p::Ducc0NufftPlan) = Int.(p.N)
-AbstractNFFTs.size_out(p::Ducc0NufftPlan) = (Int(p.J),)
-
-function AbstractNFFTs.plan_nfft(::Type{<:Array}, k::Matrix{T}, N::NTuple{D,Int}, rest...;
-                   timing::Union{Nothing,TimingStats} = nothing, kargs...) where {T,D}
-  t = @elapsed begin
-    p = Ducc0NufftPlan(k, N, rest...; kargs...)
-  end
-  if timing != nothing
-    timing.pre = t
-  end
-  return p
-end
-
-function LinearAlgebra.mul!(fHat::Vector{Complex{T}}, p::Ducc0NufftPlan{T,D}, f::Array{Complex{T},D};
-             verbose=false, timing::Union{Nothing,TimingStats} = nothing) where {T<:Float64,D}
-
-  u2nu_planned!(p.plan, f, fHat, forward=true, verbose=verbose)
-  return fHat
-end
-
-function LinearAlgebra.mul!(f::Array{Complex{T},D}, pl::Adjoint{Complex{T},<:Ducc0NufftPlan{T,D}}, fHat::Vector{Complex{T}};
-                     verbose=false, timing::Union{Nothing,TimingStats} = nothing) where {T<:Float64,D}
-  p = pl.parent
-
-  nu2u_planned!(p.plan, fHat, f, forward=false, verbose=verbose)
-  return f
-end
-
 end  # module Nufft
 
 module Sht
@@ -473,13 +448,13 @@ using ..Support
 function alm2leg!(
     alm::StridedArray{Complex{T},2},
     leg::StridedArray{Complex{T},3},
-    spin::Unsigned,
-    lmax::Unsigned,
+    spin::Integer,
+    lmax::Integer,
     mval::StridedArray{Csize_t,1},
     mstart::StridedArray{Cptrdiff_t,1}, # 1-based
-    lstride::Int,
+    lstride::Integer,
     theta::StridedArray{Cdouble,1},
-    nthreads::Unsigned,
+    nthreads::Integer = 1,
 ) where {T}
     GC.@preserve alm mval mstart theta leg begin
         ret = ccall(
@@ -503,13 +478,13 @@ end
 
 function alm2leg(
     alm::StridedArray{Complex{T},2},
-    spin::Unsigned,
-    lmax::Unsigned,
+    spin::Integer,
+    lmax::Integer,
     mval::StridedArray{Csize_t,1},
     mstart::StridedArray{Cptrdiff_t,1}, # 1-based
-    lstride::Int,
+    lstride::Integer,
     theta::StridedArray{Cdouble,1},
-    nthreads::Unsigned,
+    nthreads::Integer = 1,
 ) where {T}
     ncomp = size(alm, 2)
     ntheta = length(theta)
@@ -522,13 +497,13 @@ end
 function leg2alm!(
     leg::StridedArray{Complex{T},3},
     alm::StridedArray{Complex{T},2},
-    spin::Unsigned,
-    lmax::Unsigned,
+    spin::Integer,
+    lmax::Integer,
     mval::StridedArray{Csize_t,1},
     mstart::StridedArray{Cptrdiff_t,1}, # 1-based
-    lstride::Int,
+    lstride::Integer,
     theta::StridedArray{Cdouble,1},
-    nthreads::Unsigned,
+    nthreads::Integer = 1,
 ) where {T}
     GC.@preserve leg mval mstart theta alm begin
         ret = ccall(
@@ -552,13 +527,13 @@ end
 
 function leg2alm(
     leg::StridedArray{Complex{T},3},
-    spin::Unsigned,
-    lmax::Unsigned,
+    spin::Integer,
+    lmax::Integer,
     mval::StridedArray{Csize_t,1},
     mstart::StridedArray{Cptrdiff_t,1}, # 1-based
-    lstride::Int,
+    lstride::Integer,
     theta::StridedArray{Cdouble,1},
-    nthreads::Unsigned,
+    nthreads::Integer = 1,
 ) where {T}
     ncomp = size(leg, 3)
     alm = Array{Complex{T}}(undef, (maximum(mstart) + lmax, ncomp))
@@ -571,8 +546,8 @@ function leg2map!(
     nphi::StridedArray{Csize_t,1},
     phi0::StridedArray{Cdouble,1},
     ringstart::StridedArray{Csize_t,1}, # 1-based
-    pixstride::Int,
-    nthreads::Unsigned,
+    pixstride::Integer,
+    nthreads::Integer = 1,
 ) where {T}
     GC.@preserve leg nphi phi0 ringstart map begin
         ret = ccall(
@@ -597,8 +572,8 @@ function leg2map(
     nphi::StridedArray{Csize_t,1},
     phi0::StridedArray{Cdouble,1},
     ringstart::StridedArray{Csize_t,1}, # 1-based
-    pixstride::Int,
-    nthreads::Unsigned,
+    pixstride::Integer,
+    nthreads::Integer = 1,
 ) where {T}
     ncomp = size(leg, 3)
     npix = maximum(ringstart + nphi)
@@ -612,8 +587,8 @@ function map2leg!(
     nphi::StridedArray{Csize_t,1},
     phi0::StridedArray{Cdouble,1},
     ringstart::StridedArray{Csize_t,1}, # 1-based
-    pixstride::Int,
-    nthreads::Unsigned,
+    pixstride::Integer,
+    nthreads::Integer = 1,
 ) where {T}
     GC.@preserve map nphi phi0 ringstart leg begin
         ret = ccall(
@@ -638,9 +613,9 @@ function map2leg(
     nphi::StridedArray{Csize_t,1},
     phi0::StridedArray{Cdouble,1},
     ringstart::StridedArray{Csize_t,1}, # 1-based
-    nm::Int,
-    pixstride::Int,
-    nthreads::Unsigned,
+    nm::Integer,
+    pixstride::Integer,
+    nthreads::Integer = 1,
 ) where {T}
     ncomp = size(map, 2)
     ntheta = length(ringstart)

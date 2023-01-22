@@ -36,7 +36,9 @@ function AbstractFFTs.plan_bfft(x::AbstractArray{T}, region; kwargs...) where {T
 end
 
 function AbstractFFTs.plan_inv(p::Ducc0FFTPlan{T}) where {T}
-    return Ducc0FFTPlan{T}(p.region, p.sz, !p.forward, !p.normalize)
+    res = Ducc0FFTPlan{T}(p.region, p.sz, !p.forward, !p.normalize)
+    res.pinv = p
+    return res
 end
 
 function mul!(
@@ -51,6 +53,105 @@ end
 
 Base.:*(p::Ducc0FFTPlan, x::AbstractArray) =
     mul!(similar(x, complex(float(eltype(x)))), p, x)
+
+mutable struct Ducc0RFFTPlan{T,N} <: AbstractFFTs.Plan{T}
+    region
+    sz::NTuple{N,Int}
+    forward::Bool
+    normalize::Bool
+    nthreads::Csize_t
+    pinv::AbstractFFTs.Plan{Complex{T}}
+    function Ducc0RFFTPlan{T}(
+        region,
+        sz::NTuple{N,Int},
+        forward::Bool = true,
+        normalize::Bool = false,
+        nthreads::Int=1,
+    ) where {T,N}
+        return new{T,N}(region, sz, forward, normalize, nthreads)
+    end
+end
+
+mutable struct InverseDucc0RFFTPlan{T,N} <: AbstractFFTs.Plan{Complex{T}}
+    d::Int
+    region
+    sz::NTuple{N,Int}
+    forward::Bool
+    normalize::Bool
+    nthreads::Csize_t
+    pinv::AbstractFFTs.Plan{T}
+    function InverseDucc0RFFTPlan{T}(
+        d::Int,
+        region,
+        sz::NTuple{N,Int},
+        forward::Bool = false,
+        normalize::Bool = false,
+        nthreads::Int=1,
+    ) where {T,N}
+        return new{T,N}(d, region, sz, forward, normalize, nthreads)
+    end
+end
+
+function AbstractFFTs.plan_rfft(x::AbstractArray{T}, region; kwargs...) where {T<:Real}
+    return Ducc0RFFTPlan{T}(region, size(x))
+end
+function AbstractFFTs.plan_brfft(x::AbstractArray{Complex{T}}, d, region; kwargs...) where {T}
+    return InverseDucc0RFFTPlan{T}(d, region, size(x))
+end
+function AbstractFFTs.plan_inv(p::Ducc0RFFTPlan{T,N}) where {T,N}
+    firstdim = first(p.region)::Int
+    d = p.sz[firstdim]
+    sz = ntuple(i -> i == firstdim ? d ÷ 2 + 1 : p.sz[i], Val(N))
+    res = InverseDucc0RFFTPlan{T}(d, p.region, sz, !p.forward, !p.normalize)
+    res.pinv = p
+    return res
+end
+
+function AbstractFFTs.plan_inv(pinv::InverseDucc0RFFTPlan{T,N}) where {T,N}
+    firstdim = first(pinv.region)::Int
+    sz = ntuple(i -> i == firstdim ? pinv.d : pinv.sz[i], Val(N))
+    res = Ducc0RFFTPlan{T}(pinv.region, sz, !pinv.forward, !pinv.normalize)
+    res.pinv = pinv
+    return res
+end
+
+Base.size(p::Ducc0RFFTPlan) = p.sz
+Base.ndims(::Ducc0RFFTPlan{T,N}) where {T,N} = N
+Base.size(p::InverseDucc0RFFTPlan) = p.sz
+Base.ndims(::InverseDucc0RFFTPlan{T,N}) where {T,N} = N
+
+to_real!(x::AbstractArray) = map!(real, x, x)
+
+function Base.:*(p::Ducc0RFFTPlan, x::AbstractArray)
+    size(p) == size(x) || error("array and plan are not consistent")
+
+    # create output array
+    firstdim = first(p.region)::Int
+    d = size(x, firstdim)
+    firstdim_size = d ÷ 2 + 1
+    T = complex(float(eltype(x)))
+    sz = ntuple(i -> i == firstdim ? firstdim_size : size(x, i), Val(ndims(x)))
+    y = similar(x, T, sz)
+
+    fct = p.normalize ? AbstractFFTs.normalization(Float64, p.sz, p.region) : 1.0
+    Ducc0.Fft.r2c!(x, y, p.region, forward = p.forward, fct = fct, nthreads = p.nthreads)
+    return y
+end
+
+function Base.:*(p::InverseDucc0RFFTPlan, x::AbstractArray)
+    size(p) == size(x) || error("array and plan are not consistent")
+
+    # create output array
+    firstdim = first(p.region)::Int
+    d = p.d
+    sz = ntuple(i -> i == firstdim ? d : size(x, i), Val(ndims(x)))
+    y = similar(x, real(float(eltype(x))), sz)
+
+    # compute DFT
+    fct = p.normalize ? AbstractFFTs.normalization(Float64, sz, p.region) : 1.0
+    Ducc0.Fft.c2r!(x, y, p.region, forward = p.forward, fct = fct, nthreads = p.nthreads)
+    return y
+end
 
 
 mutable struct Ducc0NufftPlan{T,D} <: AbstractNFFTPlan{T,D,1}

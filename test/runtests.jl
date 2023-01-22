@@ -8,8 +8,8 @@ using Test
         coord = Array{Float64}(undef, (ndim, npoints))
         points = Array{Complex{Float64}}(undef, (npoints,))
 
-        u2nu!(coord, grid, points, sigma_min=1.1, sigma_max=2.5, forward = true, verbose = true, epsilon = 1e-5, nthreads=Unsigned(4))
-        nu2u!(coord, points, grid, sigma_min=1.1, sigma_max=2.5, forward = true, verbose = true, epsilon = 1e-5, nthreads=Unsigned(4))
+        u2nu!(coord, grid, points, sigma_min=1.1, sigma_max=2.5, forward = true, verbose = true, epsilon = 1e-5, nthreads=4)
+        nu2u!(coord, points, grid, sigma_min=1.1, sigma_max=2.5, forward = true, verbose = true, epsilon = 1e-5, nthreads=4)
     end
 end
 
@@ -19,11 +19,11 @@ end
         coord = Array{Float64}(undef, (ndim, npoints))
         points = Array{Complex{Float64}}(undef, (npoints,))
 
-        plan = make_plan(coord, shape, sigma_min=1.1, sigma_max=2.6, epsilon=1e-5, nthreads=Unsigned(4), periodicity=2π)
+        plan = make_plan(coord, shape, sigma_min=1.1, sigma_max=2.6, epsilon=1e-5, nthreads=4, periodicity=2π)
         u2nu_planned(plan, grid, forward=true, verbose=true)
         delete_plan!(plan)
         
-        plan = make_plan(coord, shape, sigma_min=1.1, sigma_max=2.6, epsilon=1e-5, nthreads=Unsigned(4), periodicity=2π)
+        plan = make_plan(coord, shape, sigma_min=1.1, sigma_max=2.6, epsilon=1e-5, nthreads=4, periodicity=2π)
         nu2u_planned(plan, points, forward=true, verbose=true)
         delete_plan!(plan)
     end
@@ -45,5 +45,5 @@ end
     end
     println(mstart[lmax+1])
     alm=zeros(Complex{Float64}, mstart[lmax+1]+10,1)
-    Ducc0.Sht.alm2leg(alm, UInt64(0), UInt64(lmax), mval, mstart, 1, theta, UInt64(0))
+    Ducc0.Sht.alm2leg(alm, 0, lmax, mval, mstart, 1, theta, 0)
 end
