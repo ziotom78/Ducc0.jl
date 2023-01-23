@@ -107,7 +107,7 @@ function r2c!(
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
 ) where {T<:Union{Float32,Float64}}
-    ax2 = make_axes(axes, ndims(x))
+    ax2 = reverse(make_axes(axes, ndims(x)))
     ret = ccall(
         (:fft_r2c, libducc),
         Cint,
@@ -130,7 +130,7 @@ function c2r!(
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
 ) where {T<:Union{Float32,Float64}}
-    ax2 = make_axes(axes, ndims(x))
+    ax2 = reverse(make_axes(axes, ndims(x)))
     ret = ccall(
         (:fft_c2r, libducc),
         Cint,
