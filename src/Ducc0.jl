@@ -97,7 +97,7 @@ function c2c(
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
 ) where {T<:Union{Float32,Float64}}
-    return c2c!(x, Array{T}(undef, size(x)), axes, forward, fct, nthreads)
+    return c2c!(x, Array{Complex{T}}(undef, size(x)), axes, forward=forward, fct=fct, nthreads=nthreads)
 end
 function r2c!(
     x::StridedArray{T},
@@ -144,6 +144,36 @@ function c2r!(
     )
     ret != 0 && throw(error())
     return y
+end
+function r2r_genuine_hartley!(
+    x::StridedArray{T},
+    y::StridedArray{T},
+    axes;
+    fct::AbstractFloat = 1.0,
+    nthreads::Integer = 1,
+) where {T<:Union{Float32,Float64}}
+    ax2 = make_axes(axes, ndims(x))
+    size(x) == size(y) || throw(error())
+    ret = ccall(
+        (:fft_r2r_genuine_hartley, libducc),
+        Cint,
+        (Dref, Dref, Dref, Cdouble, Csize_t),
+        desc(x),
+        desc(y),
+        desc(ax2),
+        fct,
+        nthreads,
+    )
+    ret != 0 && throw(error())
+    return y
+end
+function r2r_genuine_hartley(
+    x::StridedArray{T},
+    axes;
+    fct::AbstractFloat = 1.0,
+    nthreads::Integer = 1,
+) where {T<:Union{Float32,Float64}}
+    return r2r_genuine_hartley!(x, Array{T}(undef, size(x)), axes, fct=fct, nthreads=nthreads)
 end
 
 end  # module Fft

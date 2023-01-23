@@ -29,6 +29,18 @@ end
     end
 end
 
+@testset "Fft" begin
+    import Random
+    import LinearAlgebra
+    arr = Array{Complex{Float64}}(undef, (100,200,300))
+    Random.rand!(arr)
+    arr2 = Ducc0.Fft.c2c(Ducc0.Fft.c2c(arr, (1,3), forward=true, fct=1.), (3,1), forward=false, fct=1.0/(100*300))
+    println(LinearAlgebra.norm(arr-arr2)/LinearAlgebra.norm(arr))
+    arr = Array{Float64}(undef, (100,200,300))
+    Random.rand!(arr)
+    arr2 = Ducc0.Fft.r2r_genuine_hartley(Ducc0.Fft.r2r_genuine_hartley(arr, (1,2,3), fct=1.), (2,3,1), fct=1.0/(100*200*300))
+    println(LinearAlgebra.norm(arr-arr2)/LinearAlgebra.norm(arr))
+end
 @testset "Sht" begin
     lmax = 100
     theta = Vector{Float64}(undef, 2*lmax+2)
