@@ -338,9 +338,9 @@ end
 Carries out a uniform-to-nonuniform (i.e. Type 2) NUFFT
 
 # Arguments
-- `coord::StridedArray{T,2}`: the coordinates of the nonuniform points.
+- `coord::StridedArray{T,2}`: the coordinates of the nonuniform points. Shape `(D,npoints)`.
 - `grid::StridedArray{T2,D}`: the uniform input data array.
-- `points::StridedArray{T2,1}`: the output array for the non-uniform points.
+- `points::StridedArray{T2,1}`: the output array for the non-uniform points. Shape `(npoints,)`.
 - `forward::Bool=true`: if `true`, transform from real to frequency space,
   otherwise from frequency space to real space.
 - `verbose::Bool=false`: if `true`, write some diagnostic output to the console.
@@ -400,6 +400,27 @@ function u2nu!(
     return points
 end
 
+"""
+    u2nu(coord, grid, points; forward, verbose, epsilon, nthreads, sigma_min, sigma_max, periodicity, fft_order)
+
+Carries out a uniform-to-nonuniform (i.e. Type 2) NUFFT
+
+# Arguments
+- `coord::StridedArray{T,2}`: the coordinates of the nonuniform points. Shape `(D,npoints)`.
+- `grid::StridedArray{T2,D}`: the uniform input data array.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `verbose::Bool=false`: if `true`, write some diagnostic output to the console.
+- `epsilon::AbstractFloat=1e-5`: the requested accuracy for the transform
+- `nthreads::Integer=1`: number of threads to use for the transform
+- `sigma_min::AbstractFloat=1.1`: the minimum allowed oversamplng factor
+- `sigma_max::AbstractFloat=2.6`: the maximum allowed oversamplng factor
+- `periodicity::AbstractFloat=2π`: the periodicity of the function in the nonuniform space
+- `fft_order::Bool=true`: if true, assume the input array to be arranged in standard FFT order
+
+# Returns
+`StridedArray{T2,1}`: the values at the non-uniform points. Shape `(npoints,)`.
+"""
 function u2nu(
     coord::StridedArray{T,2},
     grid::StridedArray{T2,D};
@@ -428,6 +449,28 @@ function u2nu(
     )
 end
 
+"""
+    nu2u!(coord, points, uniform; forward, verbose, epsilon, nthreads, sigma_min, sigma_max, periodicity, fft_order)
+
+Carries out a nonuniform-to-uniform (i.e. Type 1) NUFFT
+
+# Arguments
+- `coord::StridedArray{T,2}`: the coordinates of the nonuniform points. Shape `(D,npoints)`.
+- `points::StridedArray{T2,1}`: the values at the non-uniform points. `Shape (npoints,)`.
+- `uniform::StridedArray{T2,D}`: the uniform output data array.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `verbose::Bool=false`: if `true`, write some diagnostic output to the console.
+- `epsilon::AbstractFloat=1e-5`: the requested accuracy for the transform
+- `nthreads::Integer=1`: number of threads to use for the transform
+- `sigma_min::AbstractFloat=1.1`: the minimum allowed oversamplng factor
+- `sigma_max::AbstractFloat=2.6`: the maximum allowed oversamplng factor
+- `periodicity::AbstractFloat=2π`: the periodicity of the function in the nonuniform space
+- `fft_order::Bool=true`: if true, assume the input array to be arranged in standard FFT order
+
+# Returns
+A reference to `uniform`
+"""
 function nu2u!(
     coord::StridedArray{T,2},
     points::StridedArray{T2,1},
@@ -474,6 +517,28 @@ function nu2u!(
     return uniform
 end
 
+"""
+    nu2u(coord, points, N; forward, verbose, epsilon, nthreads, sigma_min, sigma_max, periodicity, fft_order)
+
+Carries out a nonuniform-to-uniform (i.e. Type 1) NUFFT
+
+# Arguments
+- `coord::StridedArray{T,2}`: the coordinates of the nonuniform points. Shape `(D,npoints)`.
+- `points::StridedArray{T2,1}`: the values at the non-uniform points. Shape `(npoints,)`.
+- `N::NTuple{D,Int}`: the dimensions of the output data array.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `verbose::Bool=false`: if `true`, write some diagnostic output to the console.
+- `epsilon::AbstractFloat=1e-5`: the requested accuracy for the transform
+- `nthreads::Integer=1`: number of threads to use for the transform
+- `sigma_min::AbstractFloat=1.1`: the minimum allowed oversamplng factor
+- `sigma_max::AbstractFloat=2.6`: the maximum allowed oversamplng factor
+- `periodicity::AbstractFloat=2π`: the periodicity of the function in the nonuniform space
+- `fft_order::Bool=true`: if true, assume the input array to be arranged in standard FFT order
+
+# Returns
+`StridedArray{T2,D}`: the uniform output data array. Shape `(N,)`.
+"""
 function nu2u(
     coord::StridedArray{T,2},
     points::StridedArray{T2,1},
@@ -517,10 +582,27 @@ function delete_plan!(plan::NufftPlan)
     end
 end
 
+"""
+    make_plan(coord, N; epsilon, nthreads, sigma_min, sigma_max, periodicity, fft_order)
+
+Creates a plan for subsequent Type 1 or 2 NUFFTs
+
+# Arguments
+- `coord::StridedArray{T,2}`: the coordinates of the nonuniform points. Shape `(D,npoints)`.
+- `N::NTuple{D,Int}`: the dimensions of the uniform data array.
+- `epsilon::AbstractFloat=1e-5`: the requested accuracy for the transform
+- `nthreads::Integer=1`: number of threads to use for the transform
+- `sigma_min::AbstractFloat=1.1`: the minimum allowed oversamplng factor
+- `sigma_max::AbstractFloat=2.6`: the maximum allowed oversamplng factor
+- `periodicity::AbstractFloat=2π`: the periodicity of the function in the nonuniform space
+- `fft_order::Bool=true`: if true, assume the input array to be arranged in standard FFT order
+
+# Returns
+`NufftPlan`: the opaque plan object
+"""
 function make_plan(
-    coords::Matrix{T},
+    coord::Matrix{T},
     N::NTuple{D,Int};
-    nu2u::Bool = false,
     epsilon::AbstractFloat = 1e-5,
     nthreads::Integer = 1,
     sigma_min::AbstractFloat = 1.1,
@@ -532,14 +614,14 @@ function make_plan(
     for i = 1:D
         N2[i] = N[i]
     end
-    GC.@preserve N2 coords
+    GC.@preserve N2 coord
     ptr = ccall(
         (:nufft_make_plan, libducc),
         Ptr{Cvoid},
         (Cint, Dref, Dref, Cdouble, Csize_t, Cdouble, Cdouble, Cdouble, Cint),
-        nu2u,
+        false,
         desc(N2),
-        desc(coords),
+        desc(coord),
         epsilon,
         nthreads,
         sigma_min,
@@ -549,7 +631,7 @@ function make_plan(
     )
 
     ptr == C_NULL && throw(error())
-    p = NufftPlan(N2, size(coords)[2], ptr)
+    p = NufftPlan(N2, size(coord)[2], ptr)
     finalizer(p -> begin
         delete_plan!(p)
     end, p)
@@ -557,6 +639,22 @@ function make_plan(
     return p
 end
 
+"""
+    nu2u_planned!(plan, points, uniform; forward, verbose)
+
+Carries out a pre-planned nonuniform-to-uniform (i.e. Type 1) NUFFT
+
+# Arguments
+- `plan::NufftPlan`: the pre-computed plan object
+- `points::StridedArray{T,1}`: the values at the non-uniform points. `Shape (npoints,)`.
+- `uniform::StridedArray{T,D}`: the uniform output data array.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `verbose::Bool=false`: if `true`, write some diagnostic output to the console.
+
+# Returns
+A reference to `uniform`
+"""
 function nu2u_planned!(
     plan::NufftPlan,
     points::StridedArray{T,1},
@@ -576,8 +674,24 @@ function nu2u_planned!(
         desc(uniform),
     )
     ret != 0 && throw(error())
+    return uniform
 end
 
+"""
+    nu2u_planned(coord, points; forward, verbose)
+
+Carries out a pre-planned nonuniform-to-uniform (i.e. Type 1) NUFFT
+
+# Arguments
+- `plan::NufftPlan`: the pre-computed plan object
+- `points::StridedArray{T,1}`: the values at the non-uniform points. `Shape (npoints,)`.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `verbose::Bool=false`: if `true`, write some diagnostic output to the console.
+
+# Returns
+`StridedArray{T,D}`: the uniform output data array. Shape `(N,)`.
+"""
 function nu2u_planned(
     plan::NufftPlan,
     points::StridedArray{T,1};
@@ -589,6 +703,22 @@ function nu2u_planned(
     return res
 end
 
+"""
+    u2nu_planned!(plan, uniform, points; forward, verbose)
+
+Carries out a pre-planned uniform-to-nonuniform (i.e. Type 2) NUFFT
+
+# Arguments
+- `plan::NufftPlan`: the pre-computed plan object
+- `uniform::StridedArray{T,D}`: the uniform input data array.
+- `points::StridedArray{T,1}`: the output values at the non-uniform points. `Shape (npoints,)`.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `verbose::Bool=false`: if `true`, write some diagnostic output to the console.
+
+# Returns
+A reference to `points`
+"""
 function u2nu_planned!(
     plan::NufftPlan,
     uniform::StridedArray{T},
@@ -608,8 +738,24 @@ function u2nu_planned!(
         desc(points),
     )
     ret != 0 && throw(error())
+    return points
 end
 
+"""
+    u2nu_planned(plan, uniform; forward, verbose)
+
+Carries out a pre-planned uniform-to-nonuniform (i.e. Type 2) NUFFT
+
+# Arguments
+- `plan::NufftPlan`: the pre-computed plan object
+- `uniform::StridedArray{T,D}`: the uniform input data array.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `verbose::Bool=false`: if `true`, write some diagnostic output to the console.
+
+# Returns
+`StridedArray{T,1}`: the output values at the non-uniform points. `Shape (npoints,)
+"""
 function u2nu_planned(
     plan::NufftPlan,
     uniform::StridedArray{T};
