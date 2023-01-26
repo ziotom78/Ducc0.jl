@@ -50,6 +50,9 @@ export libducc, desc, Dref
 
 end  # module Support
 
+"""
+   Fast Fourier transforms and similar operations
+"""
 module Fft
 
 using ..Support
@@ -65,6 +68,29 @@ function make_axes(axes, ndim)
     return ax
 end
 
+"""
+    c2c!(x, y, axes; forward, fct, nthreads)
+
+Computes the complex Fast Fourier Transform of `x` over the requested axes and returns it in `y`.
+
+# Arguments
+- `x::StridedArray{Complex{T}}`: the input data array.
+- `y::StridedArray{Complex{T}}`: the output data array.
+  Must have the same dimensions as `x`.
+- `axes`: the list of axes to be transformed.
+  If empty, all axes are transformed.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `fct::AbstractFloat=1.0`: factor by which the result is multiplied.
+  Can be used to achieve normalized transforms.
+- `nthreads::Integer=1`: number of threads to use for the transform.
+
+# Returns
+a reference to y
+
+# Notes
+- `x` and `y` can refer to the same array, resulting in an in-place transform.
+"""
 function c2c!(
     x::StridedArray{Complex{T}},
     y::StridedArray{Complex{T}},
@@ -89,6 +115,26 @@ function c2c!(
     ret != 0 && throw(error())
     return y
 end
+
+"""
+    c2c(x, axes; forward, fct, nthreads)
+
+Computes the complex Fast Fourier Transform of `x` over the requested axes.
+
+# Arguments
+- `x::StridedArray{Complex{T}}`: the input data array.
+- `axes`: the list of axes to be transformed.
+  If empty, all axes are transformed.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `fct::AbstractFloat=1.0`: factor by which the result is multiplied.
+  Can be used to achieve normalized transforms.
+- `nthreads::Integer=1`: number of threads to use for the transform
+
+# Returns
+`y::StridedArray{Complex{T}}`: the result of the transform.
+  Has the same dimensions as `x`
+"""
 function c2c(
     x::StridedArray{Complex{T}},
     axes;
@@ -98,6 +144,30 @@ function c2c(
 ) where {T<:Union{Float32,Float64}}
     return c2c!(x, Array{Complex{T}}(undef, size(x)), axes, forward=forward, fct=fct, nthreads=nthreads)
 end
+
+"""
+    r2c!(x, y, axes; forward, fct, nthreads)
+
+Computes the real-to-complex Fast Fourier Transform of `x` over the requested axes and returns it in `y`.
+
+# Arguments
+- `x::StridedArray{T}`: the input data array.
+- `y::StridedArray{Complex{T}}`: the output data array.
+  Must have the same dimensions as `x`, except for `axes[end]`.
+  If the length of that axis was `n` on input, it is `n//2+1` on output.
+- `axes`: the list of axes to be transformed.
+  If not set, this is assumed to be `1:ndims(x)`.
+  The real-to-complex transform will be executed along `axes[end]`,
+  and will be executed first.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `fct::AbstractFloat=1.0`: factor by which the result is multiplied.
+  Can be used to achieve normalized transforms.
+- `nthreads::Integer=1`: number of threads to use for the transform.
+
+# Returns
+a reference to y
+"""
 function r2c!(
     x::StridedArray{T},
     y::StridedArray{Complex{T}},
@@ -121,6 +191,31 @@ function r2c!(
     ret != 0 && throw(error())
     return y
 end
+
+"""
+    c2r!(x, y, axes; forward, fct, nthreads)
+
+Computes the complex-to-real Fast Fourier Transform of `x` over the requested axes and returns it in `y`.
+
+# Arguments
+- `x::StridedArray{Complex{T}}`: the input data array.
+- `y::StridedArray{T}`: the output data array.
+  Must have the same dimensions as `x`, except for `axes[end]`.
+  If the length of that axis was `n` on input, the length of this axis must be
+  either `2*n-2` or `2*n-1`.
+- `axes`: the list of axes to be transformed.
+  If not set, this is assumed to be `1:ndims(x)`.
+  The complex-to-real transform will be executed along `axes[end]`,
+  and will be executed last.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `fct::AbstractFloat=1.0`: factor by which the result is multiplied.
+  Can be used to achieve normalized transforms.
+- `nthreads::Integer=1`: number of threads to use for the transform.
+
+# Returns
+a reference to y
+"""
 function c2r!(
     x::StridedArray{Complex{T}},
     y::StridedArray{T},
@@ -166,6 +261,26 @@ function r2r_genuine_hartley!(
     ret != 0 && throw(error())
     return y
 end
+
+"""
+    r2r_genuine_hartley(x, axes; fct, nthreads)
+
+Currently subtly broken. Do not use.
+
+Computes the full (non-separable) Hartley Transform of `x` over the requested axes.
+
+# Arguments
+- `x::StridedArray{T}`: the input data array.
+- `axes`: the list of axes to be transformed.
+  If empty, all axes are transformed.
+- `fct::AbstractFloat=1.0`: factor by which the result is multiplied.
+  Can be used to achieve normalized transforms.
+- `nthreads::Integer=1`: number of threads to use for the transform
+
+# Returns
+`y::StridedArray{T}`: the result of the transform.
+  Has the same dimensions as `x`
+"""
 function r2r_genuine_hartley(
     x::StridedArray{T},
     axes;
@@ -177,10 +292,27 @@ end
 
 end  # module Fft
 
+"""
+   Nonuniform Fast Fourier transforms
+"""
 module Nufft
 
 using ..Support
 
+"""
+    best_epsilon(ndim, singleprec; sigma_min, sigma_max)
+
+Returns the best achievable NUFFT accuracy for a given set of parameters
+
+# Arguments
+- `ndim::Integer`: the dimensionality of the transform (1-3).
+- `singleprec::Bool`: whether the NUFFT is single or double precision.
+- `sigma_min::AbstractFloat=1.1`: the minimum allowed oversamplng factor
+- `sigma_max::AbstractFloat=2.6`: the maximum allowed oversamplng factor
+
+# Returns
+AbstractFloat: the best achievable accuracy.
+"""
 function best_epsilon(
     ndim::Integer,
     singleprec::Bool;
@@ -200,6 +332,28 @@ function best_epsilon(
     return res
 end
 
+"""
+    u2nu!(coord, grid, points; forward, verbose, epsilon, nthreads, sigma_min, sigma_max, periodicity, fft_order)
+
+Carries out a uniform-to-nonuniform (i.e. Type 2) NUFFT
+
+# Arguments
+- `coord::StridedArray{T,2}`: the coordinates of the nonuniform points.
+- `grid::StridedArray{T2,D}`: the uniform input data array.
+- `points::StridedArray{T2,1}`: the output array for the non-uniform points.
+- `forward::Bool=true`: if `true`, transform from real to frequency space,
+  otherwise from frequency space to real space.
+- `verbose::Bool=false`: if `true`, write some diagnostic output to the console.
+- `epsilon::AbstractFloat=1e-5`: the requested accuracy for the transform
+- `nthreads::Integer=1`: number of threads to use for the transform
+- `sigma_min::AbstractFloat=1.1`: the minimum allowed oversamplng factor
+- `sigma_max::AbstractFloat=2.6`: the maximum allowed oversamplng factor
+- `periodicity::AbstractFloat=2π`: the periodicity of the function in the nonuniform space
+- `fft_order::Bool=true`: if true, assume the input array to be arranged in standard FFT order
+
+# Returns
+A reference to `points`
+"""
 function u2nu!(
     coord::StridedArray{T,2},
     grid::StridedArray{T2,D},
@@ -213,8 +367,7 @@ function u2nu!(
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
 ) where {T,T2,D}
-    res = Vector{T2}(undef, size(coord)[2])
-    GC.@preserve coord grid res
+    GC.@preserve coord grid points
     ret = ccall(
         (:nufft_u2nu, libducc),
         Cint,
@@ -236,7 +389,7 @@ function u2nu!(
         0,
         epsilon,
         nthreads,
-        desc(res),
+        desc(points),
         verbose,
         sigma_min,
         sigma_max,
@@ -244,7 +397,7 @@ function u2nu!(
         fft_order,
     )
     ret != 0 && throw(error())
-    return res
+    return points
 end
 
 function u2nu(
