@@ -773,6 +773,35 @@ module Sht
 
 using ..Support
 
+"""
+    alm2leg!(
+        alm::StridedArray{Complex{T},2}, leg::StridedArray{Complex{T},3}, spin::Integer,
+        lmax::Integer, mval::StridedArray{Csize_t,1}, mstart::StridedArray{Cptrdiff_t,1},
+        lstride::Integer, theta::StridedArray{Cdouble,1}, nthreads::Integer = 1) where {T}
+
+    Transforms a set of spherical harmonic coefficients to Legendre coefficients dependent on theta and m and places the result in `leg`.
+
+# Arguments:
+
+    - `alm::StridedArray{Complex{T},2}`: the set of spherical harmonic coefficients. ncomp must be 1 if spin is 0, else 2. The second dimension must be large enough to accommodate all entries, which are stored according to the parameters lmax, ‘mval`, mstart, and lstride.
+
+    - `leg::StridedArray{Complex{T},3}`: output array containing the Legendre coefficients.
+
+    - `spin::Integer`: the spin to use for the transform if spin==0, ncomp must be 1, otherwise 2.
+
+    - `lmax::Integer`: the maximum l moment of the transform (inclusive).
+
+    - `mval::StridedArray{Csize_t,1}`: the m moments for which the transform should be carried out, entries must be unique and <= lmax.
+
+    - `mstart::StridedArray{Cptrdiff_t,1}`: the (hypothetical) 1-BASED index in the second dimension of alm on which the entry with l=0, m=mval[mi] would be stored, for mi in mval.
+
+    - `lstride::Integer`: the index stride in the second dimension of alm between the entries for l and l+1, but the same m.
+
+    - `theta::StridedArray{Cdouble,1}`: the colatitudes of the map rings.
+
+    - `nthreads::Integer = 1`: the number of threads to use for the computation if 0, use as many threads as there are hardware threads available on the system.
+
+"""
 function alm2leg!(
     alm::StridedArray{Complex{T},2},
     leg::StridedArray{Complex{T},3},
@@ -804,6 +833,36 @@ function alm2leg!(
     return leg
 end
 
+"""
+    alm2leg(
+        alm::StridedArray{Complex{T},2}, spin::Integer,
+        lmax::Integer, mval::StridedArray{Csize_t,1}, mstart::StridedArray{Cptrdiff_t,1},
+        lstride::Integer, theta::StridedArray{Cdouble,1}, nthreads::Integer = 1) where {T}
+
+    Transforms a set of spherical harmonic coefficients to Legendre coefficients dependent on theta and m.
+
+# Arguments:
+
+    - `alm::StridedArray{Complex{T},2}`: the set of spherical harmonic coefficients. ncomp must be 1 if spin is 0, else 2. The second dimension must be large enough to accommodate all entries, which are stored according to the parameters lmax, ‘mval`, mstart, and lstride.
+
+    - `spin::Integer`: the spin to use for the transform if spin==0, ncomp must be 1, otherwise 2.
+
+    - `lmax::Integer`: the maximum l moment of the transform (inclusive).
+
+    - `mval::StridedArray{Csize_t,1}`: the m moments for which the transform should be carried out, entries must be unique and <= lmax.
+
+    - `mstart::StridedArray{Cptrdiff_t,1}`: the (hypothetical) 1-BASED index in the second dimension of alm on which the entry with l=0, m=mval[mi] would be stored, for mi in mval.
+
+    - `lstride::Integer`: the index stride in the second dimension of alm between the entries for l and l+1, but the same m.
+
+    - `theta::StridedArray{Cdouble,1}`: the colatitudes of the map rings.
+
+    - `nthreads::Integer = 1`: the number of threads to use for the computation if 0, use as many threads as there are hardware threads available on the system.
+
+# Returns:
+
+    - `leg::Array{Complex{T},3}`: output array containing the Legendre coefficients.
+"""
 function alm2leg(
     alm::StridedArray{Complex{T},2},
     spin::Integer,
@@ -822,6 +881,35 @@ function alm2leg(
     return leg
 end
 
+"""
+    leg2alm!(
+        leg::StridedArray{Complex{T},3}, alm::StridedArray{Complex{T},2}, spin::Integer,
+        lmax::Integer, mval::StridedArray{Csize_t,1}, mstart::StridedArray{Cptrdiff_t,1},
+        lstride::Integer, theta::StridedArray{Cdouble,1}, nthreads::Integer = 1) where {T}
+
+    Transforms a set of Legendre coefficients to spherical harmonic coefficients and places the result in `alm`.
+
+# Arguments:
+
+    - `leg::StridedArray{Complex{T},3}`: input array containing the Legendre coefficients. ncomp must be 1 if spin is 0, else 2. The first [m,:,:] and second [:,θ,:] dimensions must match size and ordering of `mval` and `theta` respectively.
+
+    - `alm::StridedArray{Complex{T},2}`: the output set of spherical harmonic coefficients. ncomp must be 1 if spin is 0, else 2. The first dimension must be large enough to accommodate all entries, which are stored according to the parameters lmax, ‘mval`, mstart, and lstride.
+
+    - `spin::Integer`: the spin to use for the transform if spin==0, ncomp must be 1, otherwise 2.
+
+    - `lmax::Integer`: the maximum l moment of the transform (inclusive).
+
+    - `mval::StridedArray{Csize_t,1}`: the m moments for which the transform should be carried out, entries must be unique and <= lmax.
+
+    - `mstart::StridedArray{Cptrdiff_t,1}`: the (hypothetical) 1-BASED index in the second dimension of alm on which the entry with l=0, m=mval[mi] would be stored, for mi in mval.
+
+    - `lstride::Integer`: the index stride in the second dimension of alm between the entries for l and l+1, but the same m.
+
+    - `theta::StridedArray{Cdouble,1}`: the colatitudes of the map rings.
+
+    - `nthreads::Integer = 1`: the number of threads to use for the computation if 0, use as many threads as there are hardware threads available on the system.
+
+"""
 function leg2alm!(
     leg::StridedArray{Complex{T},3},
     alm::StridedArray{Complex{T},2},
@@ -853,6 +941,36 @@ function leg2alm!(
     return alm
 end
 
+"""
+    leg2alm(
+        leg::StridedArray{Complex{T},3}, spin::Integer,
+        lmax::Integer, mval::StridedArray{Csize_t,1}, mstart::StridedArray{Cptrdiff_t,1},
+        lstride::Integer, theta::StridedArray{Cdouble,1}, nthreads::Integer = 1) where {T}
+
+    Transforms a set of Legendre coefficients to spherical harmonic coefficients.
+
+# Arguments:
+
+    - `leg::StridedArray{Complex{T},3}`: input array containing the Legendre coefficients. ncomp must be 1 if spin is 0, else 2. The first [m,:,:] and second [:,θ,:] dimensions must match size and ordering of `mval` and `theta` respectively.
+
+    - `spin::Integer`: the spin to use for the transform if spin==0, ncomp must be 1, otherwise 2.
+
+    - `lmax::Integer`: the maximum l moment of the transform (inclusive).
+
+    - `mval::StridedArray{Csize_t,1}`: the m moments for which the transform should be carried out, entries must be unique and <= lmax.
+
+    - `mstart::StridedArray{Cptrdiff_t,1}`: the (hypothetical) 1-BASED index in the second dimension of alm on which the entry with l=0, m=mval[mi] would be stored, for mi in mval.
+
+    - `lstride::Integer`: the index stride in the second dimension of alm between the entries for l and l+1, but the same m.
+
+    - `theta::StridedArray{Cdouble,1}`: the colatitudes of the map rings.
+
+    - `nthreads::Integer = 1`: the number of threads to use for the computation if 0, use as many threads as there are hardware threads available on the system.
+
+# Returns:
+
+    - `alm::StridedArray{Complex{T},2}`: the output set of spherical harmonic coefficients.
+"""
 function leg2alm(
     leg::StridedArray{Complex{T},3},
     spin::Integer,
@@ -868,6 +986,31 @@ function leg2alm(
     leg2alm!(leg, alm, spin, lmax, mval, mstart, lstride, theta, nthreads)
 end
 
+"""
+    leg2map!(
+        leg::StridedArray{Complex{T},3}, map::StridedArray{T,2}, nphi::StridedArray{Csize_t,1},
+        phi0::StridedArray{Cdouble,1},ringstart::StridedArray{Csize_t,1}, pixstride::Integer,
+        nthreads::Integer = 1) where {T}
+
+    Transforms a set of Legendre coefficients to a map and places the result in `map`.
+
+# Arguments:
+
+    - `leg::StridedArray{Complex{T},3}`: input array containing the Legendre coefficients. The entries in leg[m,:,:] correspond to quantum number m, i.e. the m values must be stored in ascending order, and complete.
+
+    - `map::StridedArray{T,2}`: the map pixel data. The first dimension must be large enough to accommodate all pixels, which are stored according to the parameters nphi, ‘ringstart`, and pixstride.
+
+    - `nphi::StridedArray{Csize_t,1}`: number of pixels in every ring.
+
+    - `phi0::StridedArray{Cdouble,1}`: azimuth (in radians) of the first pixel in every ring.
+
+    - `ringstart::StridedArray{Csize_t,1}`: the index in the second dimension of map at which the first pixel of every ring is stored.
+
+    - `pixstride::Integer`: the index stride in the second dimension of map between two subsequent pixels in a ring.
+
+    - `nthreads::Integer = 1`: the number of threads to use for the computation if 0, use as many threads as there are hardware threads available on the system.
+
+"""
 function leg2map!(
     leg::StridedArray{Complex{T},3},
     map::StridedArray{T,2},
@@ -895,6 +1038,33 @@ function leg2map!(
     return map
 end
 
+"""
+    leg2map(
+        leg::StridedArray{Complex{T},3}, map::StridedArray{T,2}, nphi::StridedArray{Csize_t,1},
+        phi0::StridedArray{Cdouble,1},ringstart::StridedArray{Csize_t,1}, pixstride::Integer,
+        nthreads::Integer = 1) where {T}
+
+    Transforms a set of Legendre coefficients to a map.
+
+# Arguments:
+
+    - `leg::StridedArray{Complex{T},3}`: input array containing the Legendre coefficients. The entries in leg[m,:,:] correspond to quantum number m, i.e. the m values must be stored in ascending order, and complete.
+
+    - `nphi::StridedArray{Csize_t,1}`: number of pixels in every ring.
+
+    - `phi0::StridedArray{Cdouble,1}`: azimuth (in radians) of the first pixel in every ring.
+
+    - `ringstart::StridedArray{Csize_t,1}`: the index in the second dimension of map at which the first pixel of every ring is stored.
+
+    - `pixstride::Integer`: the index stride in the second dimension of map between two subsequent pixels in a ring.
+
+    - `nthreads::Integer = 1`: the number of threads to use for the computation if 0, use as many threads as there are hardware threads available on the system.
+
+# Returns:
+
+    - `map::StridedArray{T,2}`: the output map pixel array.
+
+"""
 function leg2map(
     leg::StridedArray{Complex{T},3},
     nphi::StridedArray{Csize_t,1},
@@ -909,6 +1079,31 @@ function leg2map(
     leg2map!(leg, map, nphi, phi0, ringstart, pixstride, nthreads)
 end
 
+"""
+    map2leg!(
+        map::StridedArray{T,2}, leg::StridedArray{Complex{T},3}, nphi::StridedArray{Csize_t,1},
+        phi0::StridedArray{Cdouble,1},ringstart::StridedArray{Csize_t,1}, pixstride::Integer,
+        nthreads::Integer = 1) where {T}
+
+    Transforms a map to a set of Legendre coefficients dependent on theta and m, placing the result in `leg`.
+
+# Arguments:
+
+    - `map::StridedArray{T,2}`: the map pixel data. The first dimension must be large enough to accommodate all pixels, which are stored according to the parameters nphi, ‘ringstart`, and pixstride.
+
+    - `leg::StridedArray{Complex{T},3}`: output array containing the Legendre coefficients. The entries in leg[m,:,:] correspond to quantum number m, i.e. the m values will be stored in ascending order, and complete.
+
+    - `nphi::StridedArray{Csize_t,1}`: number of pixels in every ring.
+
+    - `phi0::StridedArray{Cdouble,1}`: azimuth (in radians) of the first pixel in every ring.
+
+    - `ringstart::StridedArray{Csize_t,1}`: the index in the second dimension of map at which the first pixel of every ring is stored.
+
+    - `pixstride::Integer`: the index stride in the second dimension of map between two subsequent pixels in a ring.
+
+    - `nthreads::Integer = 1`: the number of threads to use for the computation if 0, use as many threads as there are hardware threads available on the system.
+
+"""
 function map2leg!(
     map::StridedArray{T,2},
     leg::StridedArray{Complex{T},3},
@@ -936,18 +1131,47 @@ function map2leg!(
     return leg
 end
 
+"""
+    map2leg(
+        map::StridedArray{T,2}, nphi::StridedArray{Csize_t,1}, phi0::StridedArray{Cdouble,1},
+        ringstart::StridedArray{Csize_t,1}, mmax::Integer, pixstride::Integer,
+        nthreads::Integer = 1) where {T}
+
+    Transforms a map to a set of Legendre coefficients dependent on theta and m.
+
+# Arguments:
+
+    - `map::StridedArray{T,2}`: the map pixel data. The first dimension must be large enough to accommodate all pixels, which are stored according to the parameters nphi, ‘ringstart`, and pixstride.
+
+    - `nphi::StridedArray{Csize_t,1}`: number of pixels in every ring.
+
+    - `phi0::StridedArray{Cdouble,1}`: azimuth (in radians) of the first pixel in every ring.
+
+    - `ringstart::StridedArray{Csize_t,1}`: the index in the second dimension of map at which the first pixel of every ring is stored.
+
+    - `mmax::Integer`: the maximum m moment of the transform (inclusive).
+
+    - `pixstride::Integer`: the index stride in the second dimension of map between two subsequent pixels in a ring.
+
+    - `nthreads::Integer = 1`: the number of threads to use for the computation if 0, use as many threads as there are hardware threads available on the system.
+
+# Returns:
+
+    - `leg::StridedArray{Complex{T},3}`: output array containing the Legendre coefficients. The entries in leg[m,:,:] correspond to quantum number m, i.e. the m values will be stored in ascending order, and complete.
+
+"""
 function map2leg(
     map::StridedArray{T,2},
     nphi::StridedArray{Csize_t,1},
     phi0::StridedArray{Cdouble,1},
     ringstart::StridedArray{Csize_t,1}, # 1-based
-    nm::Integer,
+    mmax::Integer,
     pixstride::Integer,
     nthreads::Integer = 1,
 ) where {T}
     ncomp = size(map, 2)
     ntheta = length(ringstart)
-    leg = Array{Complex{T}}(undef, (nm, ntheta, ncomp))
+    leg = Array{Complex{T}}(undef, (mmax + 1, ntheta, ncomp))
     map2leg!(map, leg, nphi, phi0, ringstart, pixstride, nthreads)
 end
 
