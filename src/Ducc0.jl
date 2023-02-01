@@ -1074,7 +1074,7 @@ function leg2map(
     nthreads::Integer = 1,
 ) where {T}
     ncomp = size(leg, 3)
-    npix = maximum(ringstart + nphi)
+    npix = maximum(ringstart + nphi) - 1
     map = Array{T}(undef, (npix, ncomp))
     leg2map!(leg, map, nphi, phi0, ringstart, pixstride, nthreads)
 end
