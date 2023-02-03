@@ -941,7 +941,7 @@ function leg2alm!(
     return alm
 end
 
-getNalm(mstart::Cptrdiff_t, lmax::Integer, lstride::Integer) = mstart + (lmax - 1)*lstride
+getNalm(mstart::Cptrdiff_t, lmax::Integer, lstride::Integer) = mstart + (lmax)*lstride
 getNalm(mstart::StridedArray{Cptrdiff_t,1}, lmax::Integer, lstride::Integer) =
     maximum(getNalm.(mstart, lmax, lstride))
 
