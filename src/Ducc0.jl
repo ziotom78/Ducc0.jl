@@ -941,6 +941,10 @@ function leg2alm!(
     return alm
 end
 
+getNalm(mstart::Cptrdiff_t, lmax::Integer, lstride::Integer) = mstart + (lmax)*lstride
+getNalm(mstart::StridedArray{Cptrdiff_t,1}, lmax::Integer, lstride::Integer) =
+    maximum(getNalm.(mstart, lmax, lstride))
+
 """
     leg2alm(
         leg::StridedArray{Complex{T},3}, spin::Integer,
@@ -982,7 +986,8 @@ function leg2alm(
     nthreads::Integer = 1,
 ) where {T}
     ncomp = size(leg, 3)
-    alm = Array{Complex{T}}(undef, (maximum(mstart) + lmax, ncomp))
+    nalm = getNalm(mstart, lmax, lstride)
+    alm = Array{Complex{T}}(undef, (nalm, ncomp))
     leg2alm!(leg, alm, spin, lmax, mval, mstart, lstride, theta, nthreads)
 end
 
@@ -1038,6 +1043,10 @@ function leg2map!(
     return map
 end
 
+getNpix(rstart::Csize_t, nphi::Csize_t, pixstride::Integer) = rstart + (nphi - 1) * pixstride
+getNpix(rstart::StridedArray{Csize_t,1}, nphi::StridedArray{Csize_t,1}, pixstride::Integer) =
+    maximum(getNpix.(rstart, nphi, pixstride))
+
 """
     leg2map(
         leg::StridedArray{Complex{T},3}, map::StridedArray{T,2}, nphi::StridedArray{Csize_t,1},
@@ -1074,7 +1083,7 @@ function leg2map(
     nthreads::Integer = 1,
 ) where {T}
     ncomp = size(leg, 3)
-    npix = maximum(ringstart + nphi)
+    npix = getNpix(ringstart, nphi, pixstride)
     map = Array{T}(undef, (npix, ncomp))
     leg2map!(leg, map, nphi, phi0, ringstart, pixstride, nthreads)
 end
