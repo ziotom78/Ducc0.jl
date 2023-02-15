@@ -9,6 +9,7 @@ module Support
 
 import ducc0_jll
 const libducc = ducc0_jll.libducc_julia
+#libducc = "/home/martin/codes/ducc/julia/ducc_julia.so"
 
 struct ArrayDescriptor
     shape::NTuple{10,UInt64}  # length of every axis
@@ -19,7 +20,7 @@ struct ArrayDescriptor
 end
 
 # convert data types to type codes for communication with ducc
-function typecode(tp::Type)
+function typecode(tp::Type)::UInt8
     if tp <: AbstractFloat
         return sizeof(tp(0)) - 1
     elseif tp <: Unsigned
@@ -33,7 +34,7 @@ function typecode(tp::Type)
     end
 end
 
-function desc(arr::StridedArray{T,N}) where {T,N}
+function desc(arr::StridedArray{T,N})::ArrayDescriptor where {T,N}
     @assert N <= 10
     ArrayDescriptor(
         NTuple{10,UInt64}(i <= N ? size(arr)[i] : 0 for i = 1:10),
@@ -44,7 +45,7 @@ function desc(arr::StridedArray{T,N}) where {T,N}
     )
 end
 
-Dref = Ref{ArrayDescriptor}
+const Dref = Ref{ArrayDescriptor}
 
 export libducc, desc, Dref
 
@@ -98,7 +99,7 @@ function c2c!(
     forward::Bool = true,
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
-) where {T<:Union{Float32,Float64}}
+)::StridedArray{Complex{T}} where {T<:Union{Float32,Float64}}
     ax2 = make_axes(axes, ndims(x))
     size(x) == size(y) || throw(error())
     ret = ccall(
@@ -141,7 +142,7 @@ function c2c(
     forward::Bool = true,
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
-) where {T<:Union{Float32,Float64}}
+)::StridedArray{Complex{T}} where {T<:Union{Float32,Float64}}
     return c2c!(x, Array{Complex{T}}(undef, size(x)), axes, forward=forward, fct=fct, nthreads=nthreads)
 end
 
@@ -175,7 +176,7 @@ function r2c!(
     forward::Bool = true,
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
-) where {T<:Union{Float32,Float64}}
+)::StridedArray{Complex{T}} where {T<:Union{Float32,Float64}}
     ax2 = reverse(make_axes(axes, ndims(x)))
     ret = ccall(
         (:fft_r2c, libducc),
@@ -223,7 +224,7 @@ function c2r!(
     forward::Bool = true,
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
-) where {T<:Union{Float32,Float64}}
+)::StridedArray{T} where {T<:Union{Float32,Float64}}
     ax2 = reverse(make_axes(axes, ndims(x)))
     ret = ccall(
         (:fft_c2r, libducc),
@@ -239,17 +240,17 @@ function c2r!(
     ret != 0 && throw(error())
     return y
 end
-function r2r_genuine_hartley!(
+function r2r_genuine_fht!(
     x::StridedArray{T},
     y::StridedArray{T},
     axes;
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
-) where {T<:Union{Float32,Float64}}
+)::StridedArray{T} where {T<:Union{Float32,Float64}}
     ax2 = make_axes(axes, ndims(x))
     size(x) == size(y) || throw(error())
     ret = ccall(
-        (:fft_r2r_genuine_hartley, libducc),
+        (:fft_r2r_genuine_fht, libducc),
         Cint,
         (Dref, Dref, Dref, Cdouble, Csize_t),
         desc(x),
@@ -263,9 +264,7 @@ function r2r_genuine_hartley!(
 end
 
 """
-    r2r_genuine_hartley(x, axes; fct, nthreads)
-
-Currently subtly broken. Do not use.
+    r2r_genuine_fht(x, axes; fct, nthreads)
 
 Computes the full (non-separable) Hartley Transform of `x` over the requested axes.
 
@@ -281,13 +280,13 @@ Computes the full (non-separable) Hartley Transform of `x` over the requested ax
 `y::StridedArray{T}`: the result of the transform.
   Has the same dimensions as `x`
 """
-function r2r_genuine_hartley(
+function r2r_genuine_fht(
     x::StridedArray{T},
     axes;
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
-) where {T<:Union{Float32,Float64}}
-    return r2r_genuine_hartley!(x, Array{T}(undef, size(x)), axes, fct=fct, nthreads=nthreads)
+)::StridedArray{T} where {T<:Union{Float32,Float64}}
+    return r2r_genuine_fht!(x, Array{T}(undef, size(x)), axes, fct=fct, nthreads=nthreads)
 end
 
 end  # module Fft
@@ -318,7 +317,7 @@ function best_epsilon(
     singleprec::Bool;
     sigma_min::AbstractFloat = 1.1,
     sigma_max::AbstractFloat = 2.6,
-)
+)::Float64
     res = ccall(
         (:nufft_best_epsilon, libducc),
         Cdouble,
@@ -356,8 +355,8 @@ A reference to `points`
 """
 function u2nu!(
     coord::StridedArray{T,2},
-    grid::StridedArray{T2,D},
-    points::StridedArray{T2,1};
+    grid::StridedArray{Complex{T2},D},
+    points::StridedArray{Complex{T2},1};
     forward::Bool = true,
     verbose::Bool = false,
     epsilon::AbstractFloat = 1e-5,
@@ -366,7 +365,7 @@ function u2nu!(
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
-) where {T,T2,D}
+)::StridedArray{Complex{T2},1} where {T<:Union{Float32,Float64},T2<:Union{Float32,Float64},D}
     GC.@preserve coord grid points
     ret = ccall(
         (:nufft_u2nu, libducc),
@@ -423,7 +422,7 @@ Carries out a uniform-to-nonuniform (i.e. Type 2) NUFFT
 """
 function u2nu(
     coord::StridedArray{T,2},
-    grid::StridedArray{T2,D};
+    grid::StridedArray{Complex{T2},D};
     forward::Bool = true,
     verbose::Bool = false,
     epsilon::AbstractFloat = 1e-5,
@@ -432,8 +431,8 @@ function u2nu(
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
-) where {T,T2,D}
-    res = Vector{T2}(undef, size(coord)[2])
+)::Vector{Complex{T2}} where {T<:Union{Float32,Float64},T2<:Union{Float32,Float64},D}
+    res = Vector{Complex{T2}}(undef, size(coord)[2])
     return u2nu!(
         coord,
         grid,
@@ -473,8 +472,8 @@ A reference to `uniform`
 """
 function nu2u!(
     coord::StridedArray{T,2},
-    points::StridedArray{T2,1},
-    uniform::StridedArray{T2,D};
+    points::StridedArray{Complex{T2},1},
+    uniform::StridedArray{Complex{T2},D};
     forward::Bool = true,
     verbose::Bool = false,
     epsilon::AbstractFloat = 1e-5,
@@ -483,7 +482,7 @@ function nu2u!(
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
-) where {T,T2,D}
+)::StridedArray{Complex{T2},D} where {T<:Union{Float32,Float64},T2<:Union{Float32,Float64},D}
     GC.@preserve coord points uniform
     ret = ccall(
         (:nufft_nu2u, libducc),
@@ -541,7 +540,7 @@ Carries out a nonuniform-to-uniform (i.e. Type 1) NUFFT
 """
 function nu2u(
     coord::StridedArray{T,2},
-    points::StridedArray{T2,1},
+    points::StridedArray{Complex{T2},1},
     N::NTuple{D,Int};
     forward::Bool = true,
     verbose::Bool = false,
@@ -551,8 +550,8 @@ function nu2u(
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
-) where {T,T2,D}
-    res = Array{T2}(undef, N)
+)::Array{Complex{T2},D} where {T<:Union{Float32,Float64},T2<:Union{Float32,Float64},D}
+    res = Array{Complex{T2}}(undef, N)
     return nu2u!(
         coord,
         points,
@@ -609,7 +608,7 @@ function make_plan(
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
-) where {T,D}
+)::NufftPlan where {T<:Union{Float32,Float64},D}
     N2 = Vector{UInt64}(undef, D)
     for i = 1:D
         N2[i] = N[i]
@@ -657,11 +656,11 @@ A reference to `uniform`
 """
 function nu2u_planned!(
     plan::NufftPlan,
-    points::StridedArray{T,1},
-    uniform::StridedArray{T};
+    points::StridedArray{Complex{T},1},
+    uniform::StridedArray{Complex{T}};
     forward::Bool = false,
     verbose::Bool = false,
-) where {T}
+)::StridedArray{Complex{T}} where {T<:Union{Float32,Float64}}
     GC.@preserve points uniform
     ret = ccall(
         (:nufft_nu2u_planned, libducc),
@@ -694,11 +693,11 @@ Carries out a pre-planned nonuniform-to-uniform (i.e. Type 1) NUFFT
 """
 function nu2u_planned(
     plan::NufftPlan,
-    points::StridedArray{T,1};
+    points::StridedArray{Complex{T},1};
     forward::Bool = false,
     verbose::Bool = false,
-) where {T}
-    res = Array{T}(undef, Tuple(i for i in plan.N))
+)::Array{Complex{T}} where {T<:Union{Float32,Float64}}
+    res = Array{Complex{T}}(undef, Tuple(i for i in plan.N))
     nu2u_planned!(plan, points, res, forward = forward, verbose = verbose)
     return res
 end
@@ -721,11 +720,11 @@ A reference to `points`
 """
 function u2nu_planned!(
     plan::NufftPlan,
-    uniform::StridedArray{T},
-    points::StridedArray{T,1};
+    uniform::StridedArray{Complex{T}},
+    points::StridedArray{Complex{T},1};
     forward::Bool = true,
     verbose::Bool = false,
-) where {T}
+)::StridedArray{Complex{T},1} where {T<:Union{Float32,Float64}}
     GC.@preserve uniform points
     ret = ccall(
         (:nufft_u2nu_planned, libducc),
@@ -758,11 +757,11 @@ Carries out a pre-planned uniform-to-nonuniform (i.e. Type 2) NUFFT
 """
 function u2nu_planned(
     plan::NufftPlan,
-    uniform::StridedArray{T};
+    uniform::StridedArray{Complex{T}};
     forward::Bool = true,
     verbose::Bool = false,
-) where {T}
-    res = Array{T}(undef, plan.npoints)
+)::Array{Complex{T},1} where {T<:Union{Float32,Float64}}
+    res = Array{Complex{T}}(undef, plan.npoints)
     u2nu_planned!(plan, uniform, res, forward = forward, verbose = verbose)
     return res
 end
@@ -812,7 +811,7 @@ function alm2leg!(
     lstride::Integer,
     theta::StridedArray{Cdouble,1},
     nthreads::Integer = 1,
-) where {T}
+)::StridedArray{Complex{T},3} where {T<:Union{Float32,Float64}}
     GC.@preserve alm mval mstart theta leg begin
         ret = ccall(
             (:sht_alm2leg, libducc),
@@ -872,10 +871,10 @@ function alm2leg(
     lstride::Integer,
     theta::StridedArray{Cdouble,1},
     nthreads::Integer = 1,
-) where {T}
+)::Array{Complex{T},3} where T<:Union{Float32,Float64}
     ncomp = size(alm, 2)
-    ntheta = length(theta)
-    nm = length(mval)
+    ntheta = size(theta, 1)
+    nm = size(mval, 1)
     leg = Array{Complex{T}}(undef, (nm, ntheta, ncomp))
     alm2leg!(alm, leg, spin, lmax, mval, mstart, lstride, theta, nthreads)
     return leg
@@ -920,7 +919,7 @@ function leg2alm!(
     lstride::Integer,
     theta::StridedArray{Cdouble,1},
     nthreads::Integer = 1,
-) where {T}
+)::StridedArray{Complex{T},2} where {T<:Union{Float32,Float64}}
     GC.@preserve leg mval mstart theta alm begin
         ret = ccall(
             (:sht_leg2alm, libducc),
@@ -984,7 +983,7 @@ function leg2alm(
     lstride::Integer,
     theta::StridedArray{Cdouble,1},
     nthreads::Integer = 1,
-) where {T}
+)::Array{Complex{T},2} where {T<:Union{Float32,Float64}}
     ncomp = size(leg, 3)
     nalm = getNalm(mstart, lmax, lstride)
     alm = Array{Complex{T}}(undef, (nalm, ncomp))
@@ -1024,7 +1023,7 @@ function leg2map!(
     ringstart::StridedArray{Csize_t,1}, # 1-based
     pixstride::Integer,
     nthreads::Integer = 1,
-) where {T}
+)::StridedArray{T,2} where {T<:Union{Float32,Float64}}
     GC.@preserve leg nphi phi0 ringstart map begin
         ret = ccall(
             (:sht_leg2map, libducc),
@@ -1081,7 +1080,7 @@ function leg2map(
     ringstart::StridedArray{Csize_t,1}, # 1-based
     pixstride::Integer,
     nthreads::Integer = 1,
-) where {T}
+)::Array{T,2} where {T}
     ncomp = size(leg, 3)
     npix = getNpix(ringstart, nphi, pixstride)
     map = Array{T}(undef, (npix, ncomp))
@@ -1121,7 +1120,7 @@ function map2leg!(
     ringstart::StridedArray{Csize_t,1}, # 1-based
     pixstride::Integer,
     nthreads::Integer = 1,
-) where {T}
+)::StridedArray{Complex{T},3} where T<:Union{Float32,Float64}
     GC.@preserve map nphi phi0 ringstart leg begin
         ret = ccall(
             (:sht_map2leg, libducc),
@@ -1177,7 +1176,7 @@ function map2leg(
     mmax::Integer,
     pixstride::Integer,
     nthreads::Integer = 1,
-) where {T}
+)::Array{Complex{T},3} where {T<:Union{Float32,Float64}}
     ncomp = size(map, 2)
     ntheta = length(ringstart)
     leg = Array{Complex{T}}(undef, (mmax + 1, ntheta, ncomp))
