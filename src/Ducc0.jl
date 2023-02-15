@@ -101,7 +101,7 @@ function c2c!(
     nthreads::Integer = 1,
 )::StridedArray{Complex{T}} where {T<:Union{Float32,Float64}}
     ax2 = make_axes(axes, ndims(x))
-    size(x) == size(y) || throw(error())
+    size(x) == size(y) || error()
     ret = ccall(
         (:fft_c2c, libducc),
         Cint,
@@ -113,7 +113,7 @@ function c2c!(
         fct,
         nthreads,
     )
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return y
 end
 
@@ -189,7 +189,7 @@ function r2c!(
         fct,
         nthreads,
     )
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return y
 end
 
@@ -237,7 +237,7 @@ function c2r!(
         fct,
         nthreads,
     )
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return y
 end
 function r2r_genuine_fht!(
@@ -248,7 +248,7 @@ function r2r_genuine_fht!(
     nthreads::Integer = 1,
 )::StridedArray{T} where {T<:Union{Float32,Float64}}
     ax2 = make_axes(axes, ndims(x))
-    size(x) == size(y) || throw(error())
+    size(x) == size(y) || error()
     ret = ccall(
         (:fft_r2r_genuine_fht, libducc),
         Cint,
@@ -259,7 +259,7 @@ function r2r_genuine_fht!(
         fct,
         nthreads,
     )
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return y
 end
 
@@ -327,7 +327,7 @@ function best_epsilon(
         sigma_min,
         sigma_max,
     )
-    res <= 0 && throw(error())
+    res <= 0 && error()
     return res
 end
 
@@ -395,7 +395,7 @@ function u2nu!(
         periodicity,
         fft_order,
     )
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return points
 end
 
@@ -512,7 +512,7 @@ function nu2u!(
         periodicity,
         fft_order,
     )
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return uniform
 end
 
@@ -576,7 +576,7 @@ end
 function delete_plan!(plan::NufftPlan)
     if plan.cplan != C_NULL
         ret = ccall((:nufft_delete_plan, libducc), Cint, (Ptr{Cvoid},), plan.cplan)
-        ret != 0 && throw(error())
+        ret != 0 && error()
         plan.cplan = C_NULL
     end
 end
@@ -629,7 +629,7 @@ function make_plan(
         fft_order,
     )
 
-    ptr == C_NULL && throw(error())
+    ptr == C_NULL && error()
     p = NufftPlan(N2, size(coord)[2], ptr)
     finalizer(p -> begin
         delete_plan!(p)
@@ -672,7 +672,7 @@ function nu2u_planned!(
         desc(points),
         desc(uniform),
     )
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return uniform
 end
 
@@ -736,7 +736,7 @@ function u2nu_planned!(
         desc(uniform),
         desc(points),
     )
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return points
 end
 
@@ -828,7 +828,7 @@ function alm2leg!(
             desc(leg),
         )
     end
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return leg
 end
 
@@ -936,7 +936,7 @@ function leg2alm!(
             desc(alm),
         )
     end
-    ret != 0 && throw(error())
+    ret != 0 && error("leg2alm! failed")
     return alm
 end
 
@@ -1038,7 +1038,7 @@ function leg2map!(
             desc(map),
         )
     end
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return map
 end
 
@@ -1135,7 +1135,7 @@ function map2leg!(
             desc(leg),
         )
     end
-    ret != 0 && throw(error())
+    ret != 0 && error()
     return leg
 end
 
