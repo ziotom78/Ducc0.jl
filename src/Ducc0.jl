@@ -143,7 +143,14 @@ function c2c(
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
 )::StridedArray{Complex{T}} where {T<:Union{Float32,Float64}}
-    return c2c!(x, Array{Complex{T}}(undef, size(x)), axes, forward=forward, fct=fct, nthreads=nthreads)
+    return c2c!(
+        x,
+        Array{Complex{T}}(undef, size(x)),
+        axes,
+        forward = forward,
+        fct = fct,
+        nthreads = nthreads,
+    )
 end
 
 """
@@ -286,7 +293,13 @@ function r2r_genuine_fht(
     fct::AbstractFloat = 1.0,
     nthreads::Integer = 1,
 )::StridedArray{T} where {T<:Union{Float32,Float64}}
-    return r2r_genuine_fht!(x, Array{T}(undef, size(x)), axes, fct=fct, nthreads=nthreads)
+    return r2r_genuine_fht!(
+        x,
+        Array{T}(undef, size(x)),
+        axes,
+        fct = fct,
+        nthreads = nthreads,
+    )
 end
 
 end  # module Fft
@@ -365,7 +378,10 @@ function u2nu!(
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
-)::StridedArray{Complex{T2},1} where {T<:Union{Float32,Float64},T2<:Union{Float32,Float64},D}
+)::StridedArray{
+    Complex{T2},
+    1,
+} where {T<:Union{Float32,Float64},T2<:Union{Float32,Float64},D}
     GC.@preserve coord grid points
     ret = ccall(
         (:nufft_u2nu, libducc),
@@ -482,7 +498,10 @@ function nu2u!(
     sigma_max::AbstractFloat = 2.6,
     periodicity::AbstractFloat = 2π,
     fft_order::Bool = true,
-)::StridedArray{Complex{T2},D} where {T<:Union{Float32,Float64},T2<:Union{Float32,Float64},D}
+)::StridedArray{
+    Complex{T2},
+    D,
+} where {T<:Union{Float32,Float64},T2<:Union{Float32,Float64},D}
     GC.@preserve coord points uniform
     ret = ccall(
         (:nufft_nu2u, libducc),
@@ -871,7 +890,7 @@ function alm2leg(
     lstride::Integer,
     theta::StridedArray{Cdouble,1},
     nthreads::Integer = 1,
-)::Array{Complex{T},3} where T<:Union{Float32,Float64}
+)::Array{Complex{T},3} where {T<:Union{Float32,Float64}}
     ncomp = size(alm, 2)
     ntheta = size(theta, 1)
     nm = size(mval, 1)
@@ -940,7 +959,7 @@ function leg2alm!(
     return alm
 end
 
-getNalm(mstart::Cptrdiff_t, lmax::Integer, lstride::Integer) = mstart + (lmax)*lstride
+getNalm(mstart::Cptrdiff_t, lmax::Integer, lstride::Integer) = mstart + (lmax) * lstride
 getNalm(mstart::StridedArray{Cptrdiff_t,1}, lmax::Integer, lstride::Integer) =
     maximum(getNalm.(mstart, lmax, lstride))
 
@@ -1042,9 +1061,13 @@ function leg2map!(
     return map
 end
 
-getNpix(rstart::Csize_t, nphi::Csize_t, pixstride::Integer) = rstart + (nphi - 1) * pixstride
-getNpix(rstart::StridedArray{Csize_t,1}, nphi::StridedArray{Csize_t,1}, pixstride::Integer) =
-    maximum(getNpix.(rstart, nphi, pixstride))
+getNpix(rstart::Csize_t, nphi::Csize_t, pixstride::Integer) =
+    rstart + (nphi - 1) * pixstride
+getNpix(
+    rstart::StridedArray{Csize_t,1},
+    nphi::StridedArray{Csize_t,1},
+    pixstride::Integer,
+) = maximum(getNpix.(rstart, nphi, pixstride))
 
 """
     leg2map(
@@ -1120,7 +1143,7 @@ function map2leg!(
     ringstart::StridedArray{Csize_t,1}, # 1-based
     pixstride::Integer,
     nthreads::Integer = 1,
-)::StridedArray{Complex{T},3} where T<:Union{Float32,Float64}
+)::StridedArray{Complex{T},3} where {T<:Union{Float32,Float64}}
     GC.@preserve map nphi phi0 ringstart leg begin
         ret = ccall(
             (:sht_map2leg, libducc),
