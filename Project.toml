@@ -1,6 +1,6 @@
 name = "Ducc0"
 uuid = "47ec601d-2729-4ac9-bed9-2b3ab5fca9ff"
-authors = ["Martin Reinecke <martin@MPA-Garching.MPG.DE>", "Maurizio Tomasi <ziotom78@gmail.com>"]
+authors = ["Martin Reinecke <martin@MPA-Garching.MPG.DE>", "Maurizio Tomasi <ziotom78@gmail.com>", "Leo Alessandro Bianchi"]
 version = "0.1.0"
 
 [deps]
